@@ -79,7 +79,7 @@ pub unsafe extern "C" fn yajl_lex_alloc(
 ) -> yajl_lexer {
     let mut lxr: yajl_lexer = ((*alloc).malloc).expect("non-null function pointer")(
         (*alloc).ctx,
-        ::core::mem::size_of::<yajl_lexer_t>() as libc::c_ulong,
+        ::core::mem::size_of::<yajl_lexer_t>(),
     ) as yajl_lexer;
     memset(
         lxr as *mut libc::c_void,

@@ -1,11 +1,8 @@
 use ::libc;
 
 use crate::yajl_alloc::yajl_alloc_funcs;
-extern "C" {
-    fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: libc::c_ulong) -> *mut libc::c_void;
-    fn memset(_: *mut libc::c_void, _: libc::c_int, _: libc::c_ulong) -> *mut libc::c_void;
-}
-pub type size_t = libc::c_ulong;
+
+pub type size_t = usize;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -17,7 +14,7 @@ pub struct yajl_buf_t {
 }
 pub type yajl_buf = *mut yajl_buf_t;
 unsafe extern "C" fn yajl_buf_ensure_available(mut buf: yajl_buf, mut want: size_t) {
-    let mut need: size_t = 0;
+    let mut need: usize = 0;
     if ((*buf).data).is_null() {
         (*buf).len = 2048 as libc::c_int as size_t;
         (*buf).data = ((*(*buf).alloc).malloc).expect("non-null function pointer")(
@@ -43,12 +40,12 @@ unsafe extern "C" fn yajl_buf_ensure_available(mut buf: yajl_buf, mut want: size
 pub unsafe extern "C" fn yajl_buf_alloc(mut alloc: *mut yajl_alloc_funcs) -> yajl_buf {
     let mut b: yajl_buf = ((*alloc).malloc).expect("non-null function pointer")(
         (*alloc).ctx,
-        ::core::mem::size_of::<yajl_buf_t>() as libc::c_ulong,
+        ::core::mem::size_of::<yajl_buf_t>(),
     ) as yajl_buf;
-    memset(
+    libc::memset(
         b as *mut libc::c_void,
         0 as libc::c_int,
-        ::core::mem::size_of::<yajl_buf_t>() as libc::c_ulong,
+        ::core::mem::size_of::<yajl_buf_t>(),
     );
     (*b).alloc = alloc;
     return b;
@@ -73,13 +70,13 @@ pub unsafe extern "C" fn yajl_buf_append(
     mut len: size_t,
 ) {
     yajl_buf_ensure_available(buf, len);
-    if len > 0 as libc::c_int as libc::c_ulong {
-        memcpy(
+    if len > 0 {
+        libc::memcpy(
             ((*buf).data).offset((*buf).used as isize) as *mut libc::c_void,
             data,
             len,
         );
-        (*buf).used = ((*buf).used as libc::c_ulong).wrapping_add(len) as size_t as size_t;
+        (*buf).used = ((*buf).used).wrapping_add(len);
         *((*buf).data).offset((*buf).used as isize) = 0 as libc::c_int as libc::c_uchar;
     }
 }

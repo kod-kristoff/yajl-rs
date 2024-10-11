@@ -90,12 +90,12 @@ impl yajl_handle_t {
         }
         hand = ((*afs).malloc).expect("non-null function pointer")(
             (*afs).ctx,
-            ::core::mem::size_of::<yajl_handle_t>() as u64,
+            ::core::mem::size_of::<yajl_handle_t>(),
         ) as yajl_handle;
         memcpy(
             &mut (*hand).alloc as *mut yajl_alloc_funcs as *mut libc::c_void,
             afs as *mut libc::c_void,
-            ::core::mem::size_of::<yajl_alloc_funcs>() as libc::size_t,
+            ::core::mem::size_of::<yajl_alloc_funcs>(),
         );
         (*hand).callbacks = callbacks;
         (*hand).ctx = ctx;
@@ -117,7 +117,7 @@ impl yajl_handle_t {
                 .expect("non-null function pointer")(
                 (*(*hand).stateStack.yaf).ctx,
                 (*hand).stateStack.stack as *mut libc::c_void,
-                (*hand).stateStack.size as u64,
+                (*hand).stateStack.size as usize,
             ) as *mut libc::c_uchar;
         }
         let fresh0 = (*hand).stateStack.used;
@@ -358,21 +358,17 @@ pub unsafe extern "C" fn yajl_render_error_string(
     } else {
         errorType = b"unknown\0" as *const u8 as *const libc::c_char;
     }
-    let mut memneeded: u64 = 0;
-    memneeded = (memneeded as libc::size_t).wrapping_add(strlen(errorType)) as libc::size_t as u64;
-    memneeded = (memneeded as libc::size_t)
-        .wrapping_add(strlen(b" error\0" as *const u8 as *const libc::c_char))
-        as libc::size_t as u64;
+    let mut memneeded: usize = 0;
+    memneeded = (memneeded).wrapping_add(strlen(errorType));
+    memneeded = (memneeded).wrapping_add(strlen(b" error\0" as *const u8 as *const libc::c_char));
     if !errorText.is_null() {
         memneeded = (memneeded as libc::size_t)
-            .wrapping_add(strlen(b": \0" as *const u8 as *const libc::c_char))
-            as libc::size_t as u64;
-        memneeded =
-            (memneeded as libc::size_t).wrapping_add(strlen(errorText)) as libc::size_t as u64;
+            .wrapping_add(strlen(b": \0" as *const u8 as *const libc::c_char));
+        memneeded = (memneeded as libc::size_t).wrapping_add(strlen(errorText));
     }
     str = ((*hand).alloc.malloc).expect("non-null function pointer")(
         (*hand).alloc.ctx,
-        memneeded.wrapping_add(2 as libc::c_int as u64),
+        memneeded.wrapping_add(2 as libc::c_int as usize),
     ) as *mut libc::c_uchar;
     if str.is_null() {
         return 0 as *mut libc::c_uchar;
@@ -440,7 +436,7 @@ pub unsafe extern "C" fn yajl_render_error_string(
             (strlen(str as *mut libc::c_char))
                 .wrapping_add(strlen(text.as_mut_ptr()))
                 .wrapping_add(strlen(arrow))
-                .wrapping_add(1 as libc::c_int as libc::size_t) as libc::c_uint as u64,
+                .wrapping_add(1),
         ) as *mut libc::c_char;
         if !newStr.is_null() {
             *newStr.offset(0 as libc::c_int as isize) = 0 as libc::c_int as libc::c_char;
@@ -931,7 +927,7 @@ pub unsafe extern "C" fn yajl_do_parse(
                                     .expect("non-null function pointer")(
                                     (*(*hand).stateStack.yaf).ctx,
                                     (*hand).stateStack.stack as *mut libc::c_void,
-                                    (*hand).stateStack.size as u64,
+                                    (*hand).stateStack.size,
                                 )
                                     as *mut libc::c_uchar;
                             }
