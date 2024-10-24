@@ -1,7 +1,5 @@
 use ::libc;
-extern "C" {
-    fn strlen(_: *const libc::c_char) -> libc::c_ulong;
-}
+
 #[no_mangle]
 pub static mut doc1: [*const libc::c_char; 26] = [
     b"[{\"coordinates\": null,\n            \"created_at\": \"Sun Apr 24 13:18:48 +0000 2011\",\n            \"favorited\": false,\n            \"truncated\": false,\n            \"id_str\": \"62143455073280000\",\n            \"in_reply_to_user_id_str\": null,\n            \"contributors\": null,\n            \"text\": \"Good morning! Happy Easter! Hopefully c u later!\",\n            \"id\": 62143455073280000,\n            \"in_reply_to_status_id_str\": null,\n            \"retweet_count\": 0,\n            \"geo\": null,\n            \"retweeted\": false,\n            \"in_reply_to_user_id\": null,\n            \"place\": null,\n            \"user\": {\n            \"name\": \"David\",\n                \"profile_sidebar_border_color\": \"C0DEED\",\n                \"profile_background_tile\": false,\n                \"profile_sidebar_fill_color\": \"DDEEF6\",\n                \"profile_image_url\": \"http:\\/\\/a3.twimg.com\\/profile_images\\/1313918274\\/image_normal.jpg\",\n                \"created_at\": \"Sat Apr 16 12:10:50 +0000 2011\",\n                \"location\": null,\n                \"is_translator\": false,\n                \"follow_request_sent\": null,\n                \"profile_link_color\": \"0084B4\",\n                \"id_str\": \"283022296\",\n                \"url\": null,\n                \"default_profile\": true,\n                \"contributors_enabled\": false,\n                \"favourites_count\": 0,\n                \"utc_offset\": null,\n                \"id\": 283022296,\n                \"listed_count\": 0,\n                \"profile_use_background_image\": true,\n                \"lang\": \"en\",\n                \"protected\": false,\n                \"followers_count\": 7,\n                \"profile_text_color\": \"333333\",\n                \"profile_background_color\": \"C0DEED\",\n                \"geo_enabled\": false,\n                \"time_zone\": null,\n                \"notifications\": null,\n                \"description\": null,\n                \"verified\": false,\n                \"profile_background_image_url\": \"http:\\/\\/a3.twimg.com\\/a\\/1302724321\\/images\\/themes\\/theme1\\/bg.png\",\n\0"
@@ -98,29 +96,27 @@ pub static mut g_documents: [*mut *const libc::c_char; 4] = unsafe {
     ]
 };
 #[no_mangle]
-pub unsafe extern "C" fn num_docs() -> libc::c_int {
-    let mut i: libc::c_int = 0 as libc::c_int;
-    i = 0 as libc::c_int;
-    while !(g_documents[i as usize]).is_null() {
+pub unsafe extern "C" fn num_docs() -> usize {
+    let mut i: usize = 0;
+    while !(g_documents[i]).is_null() {
         i += 1;
     }
     return i;
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_doc(mut i: libc::c_int) -> *mut *const libc::c_char {
-    return g_documents[i as usize];
+pub unsafe extern "C" fn get_doc(i: usize) -> *mut *const libc::c_char {
+    return g_documents[i];
 }
 #[no_mangle]
-pub unsafe extern "C" fn doc_size(mut i: libc::c_int) -> libc::c_uint {
-    let mut sz: libc::c_int = 0 as libc::c_int;
+pub unsafe extern "C" fn doc_size(i: usize) -> usize {
+    let mut sz: usize = 0;
     let mut p: *mut *const libc::c_char = get_doc(i);
     loop {
-        sz = (sz as libc::c_ulong).wrapping_add(strlen(*p)) as libc::c_int
-            as libc::c_int;
+        sz = (sz).wrapping_add(libc::strlen(*p));
         p = p.offset(1);
         if (*p).is_null() {
             break;
         }
     }
-    return sz as libc::c_uint;
+    return sz;
 }

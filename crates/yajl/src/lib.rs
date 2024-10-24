@@ -22,3 +22,5 @@ pub mod yajl_parser;
 pub mod yajl_status;
 pub mod yajl_tree;
 pub mod yajl_version;
+
+pub use yajl::yajl_parse;

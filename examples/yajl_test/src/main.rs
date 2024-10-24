@@ -8,40 +8,40 @@ extern "C" {
     //     afs: *mut yajl_alloc_funcs,
     //     ctx: *mut libc::c_void,
     // ) -> yajl_handle;
-    fn yajl_config(h: yajl_handle, opt: yajl_option, _: ...) -> libc::c_int;
-    // fn yajl_free(handle: yajl_handle);
-    fn yajl_parse(
-        hand: yajl_handle,
-        jsonText: *const libc::c_uchar,
-        jsonTextLength: usize,
-    ) -> yajl_status;
-    fn yajl_complete_parse(hand: yajl_handle) -> yajl_status;
-    fn yajl_get_error(
-        hand: yajl_handle,
-        verbose: libc::c_int,
-        jsonText: *const libc::c_uchar,
-        jsonTextLength: usize,
-    ) -> *mut libc::c_uchar;
-    fn yajl_free_error(hand: yajl_handle, str: *mut libc::c_uchar);
+    // fn yajl_config(h: yajl_handle, opt: yajl_option, _: ...) -> libc::c_int;
+    // // fn yajl_free(handle: yajl_handle);
+    // fn yajl_parse(
+    //     hand: yajl_handle,
+    //     jsonText: *const libc::c_uchar,
+    //     jsonTextLength: usize,
+    // ) -> yajl_status;
+    // fn yajl_complete_parse(hand: yajl_handle) -> yajl_status;
+    // fn yajl_get_error(
+    //     hand: yajl_handle,
+    //     verbose: libc::c_int,
+    //     jsonText: *const libc::c_uchar,
+    //     jsonTextLength: usize,
+    // ) -> *mut libc::c_uchar;
+    // fn yajl_free_error(hand: yajl_handle, str: *mut libc::c_uchar);
     static mut stdin: *mut FILE;
     static mut stdout: *mut FILE;
     static mut stderr: *mut FILE;
-    fn fclose(__stream: *mut FILE) -> libc::c_int;
-    fn fflush(__stream: *mut FILE) -> libc::c_int;
-    fn fopen(_: *const libc::c_char, _: *const libc::c_char) -> *mut FILE;
-    fn fprintf(_: *mut FILE, _: *const libc::c_char, _: ...) -> libc::c_int;
-    fn printf(_: *const libc::c_char, _: ...) -> libc::c_int;
-    fn fread(_: *mut libc::c_void, _: usize, _: usize, _: *mut FILE) -> usize;
-    fn fwrite(_: *const libc::c_void, _: usize, _: usize, _: *mut FILE) -> usize;
-    fn feof(__stream: *mut FILE) -> libc::c_int;
-    fn strtol(_: *const libc::c_char, _: *mut *mut libc::c_char, _: libc::c_int) -> libc::c_long;
-    fn malloc(_: usize) -> *mut libc::c_void;
-    fn realloc(_: *mut libc::c_void, _: usize) -> *mut libc::c_void;
-    fn free(_: *mut libc::c_void);
-    fn exit(_: libc::c_int) -> !;
-    fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: usize) -> *mut libc::c_void;
-    fn strcmp(_: *const libc::c_char, _: *const libc::c_char) -> libc::c_int;
-    fn strlen(_: *const libc::c_char) -> usize;
+    // fn fclose(__stream: *mut FILE) -> libc::c_int;
+    // fn fflush(__stream: *mut FILE) -> libc::c_int;
+    // fn fopen(_: *const libc::c_char, _: *const libc::c_char) -> *mut FILE;
+    // fn fprintf(_: *mut FILE, _: *const libc::c_char, _: ...) -> libc::c_int;
+    // fn printf(_: *const libc::c_char, _: ...) -> libc::c_int;
+    // fn fread(_: *mut libc::c_void, _: usize, _: usize, _: *mut FILE) -> usize;
+    // fn fwrite(_: *const libc::c_void, _: usize, _: usize, _: *mut FILE) -> usize;
+    // fn feof(__stream: *mut FILE) -> libc::c_int;
+    // fn strtol(_: *const libc::c_char, _: *mut *mut libc::c_char, _: libc::c_int) -> libc::c_long;
+    // fn malloc(_: usize) -> *mut libc::c_void;
+    // fn realloc(_: *mut libc::c_void, _: usize) -> *mut libc::c_void;
+    // fn free(_: *mut libc::c_void);
+    // fn exit(_: libc::c_int) -> !;
+    // fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: usize) -> *mut libc::c_void;
+    // fn strcmp(_: *const libc::c_char, _: *const libc::c_char) -> libc::c_int;
+    // fn strlen(_: *const libc::c_char) -> usize;
 }
 
 pub type yajl_status = libc::c_uint;
@@ -51,7 +51,9 @@ pub const yajl_status_ok: yajl_status = 0;
 use std::ptr::addr_of;
 
 use yajl::{
+    yajl::{yajl_complete_parse, yajl_config, yajl_free_error, yajl_get_error},
     yajl_alloc::yajl_alloc_funcs,
+    yajl_parse,
     yajl_parser::{yajl_callbacks, yajl_handle_t},
 };
 pub type yajl_handle = *mut yajl_handle_t;
@@ -75,7 +77,7 @@ pub struct yajlTestMemoryContext {
 }
 #[inline]
 unsafe extern "C" fn atoi(mut __nptr: *const libc::c_char) -> libc::c_int {
-    strtol(
+    libc::strtol(
         __nptr,
         std::ptr::null_mut::<libc::c_void>() as *mut *mut libc::c_char,
         10 as libc::c_int,
@@ -84,12 +86,12 @@ unsafe extern "C" fn atoi(mut __nptr: *const libc::c_char) -> libc::c_int {
 unsafe extern "C" fn yajlTestFree(ctx: *mut libc::c_void, ptr: *mut libc::c_void) {
     let fresh0 = &mut (*(ctx as *mut yajlTestMemoryContext)).numFrees;
     *fresh0 = (*fresh0).wrapping_add(1);
-    free(ptr);
+    libc::free(ptr);
 }
 unsafe extern "C" fn yajlTestMalloc(ctx: *mut libc::c_void, sz: usize) -> *mut libc::c_void {
     let fresh1 = &mut (*(ctx as *mut yajlTestMemoryContext)).numMallocs;
     *fresh1 = (*fresh1).wrapping_add(1);
-    malloc(sz)
+    libc::malloc(sz)
 }
 unsafe extern "C" fn yajlTestRealloc(
     ctx: *mut libc::c_void,
@@ -103,17 +105,17 @@ unsafe extern "C" fn yajlTestRealloc(
         let fresh3 = &mut (*(ctx as *mut yajlTestMemoryContext)).numFrees;
         *fresh3 = (*fresh3).wrapping_add(1);
     }
-    realloc(ptr, sz)
+    libc::realloc(ptr, sz)
 }
 unsafe extern "C" fn test_yajl_null(_ctx: *mut libc::c_void) -> libc::c_int {
-    printf(b"null\n\0" as *const u8 as *const libc::c_char);
+    libc::printf(b"null\n\0" as *const u8 as *const libc::c_char);
     1 as libc::c_int
 }
 unsafe extern "C" fn test_yajl_boolean(
     _ctx: *mut libc::c_void,
     boolVal: libc::c_int,
 ) -> libc::c_int {
-    printf(
+    libc::printf(
         b"bool: %s\n\0" as *const u8 as *const libc::c_char,
         if boolVal != 0 {
             b"true\0" as *const u8 as *const libc::c_char
@@ -127,7 +129,7 @@ unsafe extern "C" fn test_yajl_integer(
     _ctx: *mut libc::c_void,
     integerVal: libc::c_longlong,
 ) -> libc::c_int {
-    printf(
+    libc::printf(
         b"integer: %lld\n\0" as *const u8 as *const libc::c_char,
         integerVal,
     );
@@ -137,7 +139,7 @@ unsafe extern "C" fn test_yajl_double(
     _ctx: *mut libc::c_void,
     doubleVal: libc::c_double,
 ) -> libc::c_int {
-    printf(
+    libc::printf(
         b"double: %g\n\0" as *const u8 as *const libc::c_char,
         doubleVal,
     );
@@ -148,14 +150,14 @@ unsafe extern "C" fn test_yajl_string(
     stringVal: *const libc::c_uchar,
     stringLen: usize,
 ) -> libc::c_int {
-    printf(b"string: '\0" as *const u8 as *const libc::c_char);
-    fwrite(
+    libc::printf(b"string: '\0" as *const u8 as *const libc::c_char);
+    libc::fwrite(
         stringVal as *const libc::c_void,
         1 as libc::c_int as usize,
         stringLen,
         stdout,
     );
-    printf(b"'\n\0" as *const u8 as *const libc::c_char);
+    libc::printf(b"'\n\0" as *const u8 as *const libc::c_char);
     1 as libc::c_int
 }
 unsafe extern "C" fn test_yajl_map_key(
@@ -164,31 +166,31 @@ unsafe extern "C" fn test_yajl_map_key(
     stringLen: usize,
 ) -> libc::c_int {
     let str: *mut libc::c_char =
-        malloc(stringLen.wrapping_add(1 as libc::c_int as usize)) as *mut libc::c_char;
+        libc::malloc(stringLen.wrapping_add(1 as libc::c_int as usize)) as *mut libc::c_char;
     *str.add(stringLen) = 0 as libc::c_int as libc::c_char;
-    memcpy(
+    libc::memcpy(
         str as *mut libc::c_void,
         stringVal as *const libc::c_void,
         stringLen,
     );
-    printf(b"key: '%s'\n\0" as *const u8 as *const libc::c_char, str);
-    free(str as *mut libc::c_void);
+    libc::printf(b"key: '%s'\n\0" as *const u8 as *const libc::c_char, str);
+    libc::free(str as *mut libc::c_void);
     1 as libc::c_int
 }
 unsafe extern "C" fn test_yajl_start_map(_ctx: *mut libc::c_void) -> libc::c_int {
-    printf(b"map open '{'\n\0" as *const u8 as *const libc::c_char);
+    libc::printf(b"map open '{'\n\0" as *const u8 as *const libc::c_char);
     1 as libc::c_int
 }
 unsafe extern "C" fn test_yajl_end_map(_ctx: *mut libc::c_void) -> libc::c_int {
-    printf(b"map close '}'\n\0" as *const u8 as *const libc::c_char);
+    libc::printf(b"map close '}'\n\0" as *const u8 as *const libc::c_char);
     1 as libc::c_int
 }
 unsafe extern "C" fn test_yajl_start_array(_ctx: *mut libc::c_void) -> libc::c_int {
-    printf(b"array open '['\n\0" as *const u8 as *const libc::c_char);
+    libc::printf(b"array open '['\n\0" as *const u8 as *const libc::c_char);
     1 as libc::c_int
 }
 unsafe extern "C" fn test_yajl_end_array(_ctx: *mut libc::c_void) -> libc::c_int {
-    printf(b"array close ']'\n\0" as *const u8 as *const libc::c_char);
+    libc::printf(b"array close ']'\n\0" as *const u8 as *const libc::c_char);
     1 as libc::c_int
 }
 static mut callbacks: yajl_callbacks = yajl_callbacks {
@@ -224,13 +226,13 @@ static mut callbacks: yajl_callbacks = yajl_callbacks {
     ),
 };
 unsafe extern "C" fn usage(progname: *const libc::c_char) {
-    fprintf(
+    libc::fprintf(
         stderr,
         b"usage:  %s [options]\nParse input from stdin as JSON and output parsing details to stdout\n   -b  set the read buffer size\n   -c  allow comments\n   -g  allow *g*arbage after valid JSON text\n   -m  allows the parser to consume multiple JSON values\n       from a single string separated by whitespace\n   -p  partial JSON documents should not cause errors\n\0"
             as *const u8 as *const libc::c_char,
         progname,
     );
-    exit(1 as libc::c_int);
+    libc::exit(1 as libc::c_int);
 }
 unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int {
     let mut fileName: *const libc::c_char = std::ptr::null::<libc::c_char>();
@@ -268,13 +270,13 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     );
     let mut i = 1 as libc::c_int;
     while i < argc {
-        if strcmp(
+        if libc::strcmp(
             b"-c\0" as *const u8 as *const libc::c_char,
             *argv.offset(i as isize),
         ) == 0
         {
             yajl_config(hand, yajl_allow_comments, 1 as libc::c_int);
-        } else if strcmp(
+        } else if libc::strcmp(
             b"-b\0" as *const u8 as *const libc::c_char,
             *argv.offset(i as isize),
         ) == 0
@@ -284,11 +286,11 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
                 usage(*argv.offset(0 as libc::c_int as isize));
             }
             j = 0 as libc::c_int;
-            while j < strlen(*argv.offset(i as isize)) as libc::c_int {
+            while j < libc::strlen(*argv.offset(i as isize)) as libc::c_int {
                 if !(*(*argv.offset(i as isize)).offset(j as isize) as libc::c_int <= '9' as i32
                     && *(*argv.offset(i as isize)).offset(j as isize) as libc::c_int >= '0' as i32)
                 {
-                    fprintf(
+                    libc::fprintf(
                         stderr,
                         b"-b requires an integer argument.  '%s' is invalid\n\0" as *const u8
                             as *const libc::c_char,
@@ -300,25 +302,25 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
             }
             bufSize = atoi(*argv.offset(i as isize)) as usize;
             if bufSize == 0 {
-                fprintf(
+                libc::fprintf(
                     stderr,
                     b"%zu is an invalid buffer size\n\0" as *const u8 as *const libc::c_char,
                     bufSize,
                 );
             }
-        } else if strcmp(
+        } else if libc::strcmp(
             b"-g\0" as *const u8 as *const libc::c_char,
             *argv.offset(i as isize),
         ) == 0
         {
             yajl_config(hand, yajl_allow_trailing_garbage, 1 as libc::c_int);
-        } else if strcmp(
+        } else if libc::strcmp(
             b"-m\0" as *const u8 as *const libc::c_char,
             *argv.offset(i as isize),
         ) == 0
         {
             yajl_config(hand, yajl_allow_multiple_values, 1 as libc::c_int);
-        } else if strcmp(
+        } else if libc::strcmp(
             b"-p\0" as *const u8 as *const libc::c_char,
             *argv.offset(i as isize),
         ) == 0
@@ -330,32 +332,32 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
         }
         i += 1;
     }
-    fileData = malloc(bufSize) as *mut libc::c_uchar;
+    fileData = libc::malloc(bufSize) as *mut libc::c_uchar;
     if fileData.is_null() {
-        fprintf(
+        libc::fprintf(
             stderr,
             b"failed to allocate read buffer of %zu bytes, exiting.\0" as *const u8
                 as *const libc::c_char,
             bufSize,
         );
         yajl_handle_t::free(hand);
-        exit(2 as libc::c_int);
+        libc::exit(2 as libc::c_int);
     }
     let file: *mut libc::FILE = if !fileName.is_null() {
-        fopen(fileName, b"r\0" as *const u8 as *const libc::c_char)
+        libc::fopen(fileName, b"r\0" as *const u8 as *const libc::c_char)
     } else {
         stdin
     };
     loop {
-        rd = fread(
+        rd = libc::fread(
             fileData as *mut libc::c_void,
             1 as libc::c_int as usize,
             bufSize,
             file,
         );
         if rd == 0 as libc::c_int as usize {
-            if feof(stdin) == 0 {
-                fprintf(
+            if libc::feof(stdin) == 0 {
+                libc::fprintf(
                     stderr,
                     b"error reading from '%s'\n\0" as *const u8 as *const libc::c_char,
                     fileName,
@@ -372,8 +374,8 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
     stat = yajl_complete_parse(hand);
     if stat as libc::c_uint != yajl_status_ok as libc::c_int as libc::c_uint {
         let str: *mut libc::c_uchar = yajl_get_error(hand, 0 as libc::c_int, fileData, rd);
-        fflush(stdout);
-        fprintf(
+        libc::fflush(stdout);
+        libc::fprintf(
             stderr,
             b"%s\0" as *const u8 as *const libc::c_char,
             str as *mut libc::c_char,
@@ -381,12 +383,12 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
         yajl_free_error(hand, str);
     }
     yajl_handle_t::free(hand);
-    free(fileData as *mut libc::c_void);
+    libc::free(fileData as *mut libc::c_void);
     if !fileName.is_null() {
-        fclose(file);
+        libc::fclose(file);
     }
-    fflush(stderr);
-    fflush(stdout);
+    libc::fflush(stderr);
+    libc::fflush(stdout);
     println!("memory leaks:\t{}", memCtx.numMallocs - memCtx.numFrees);
     assert_eq!(memCtx.numMallocs, memCtx.numFrees, "memory leak detected");
     0 as libc::c_int

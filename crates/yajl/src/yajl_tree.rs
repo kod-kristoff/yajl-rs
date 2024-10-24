@@ -6,36 +6,38 @@ use std::ptr::{addr_of, null_mut};
 use ::libc;
 
 use crate::{
+    yajl::{yajl_complete_parse, yajl_config, yajl_get_error},
     yajl_alloc::yajl_alloc_funcs,
     yajl_buf::yajl_buf_t,
     yajl_lex::yajl_lexer_t,
-    yajl_parser::{yajl_callbacks, yajl_handle_t},
+    yajl_parse,
+    yajl_parser::{yajl_callbacks, yajl_handle_t, yajl_parse_integer},
 };
-extern "C" {
+// extern "C" {
 
-    #[cfg_attr(target_os = "android", link_name = "__errno")]
-    fn __errno_location() -> *mut libc::c_int;
-    // fn yajl_alloc(
-    //     callbacks: *const yajl_callbacks,
-    //     afs: *mut yajl_alloc_funcs,
-    //     ctx: *mut libc::c_void,
-    // ) -> yajl_handle;
-    fn yajl_config(h: yajl_handle, opt: yajl_option, _: ...) -> libc::c_int;
-    fn yajl_free(handle: yajl_handle);
-    fn yajl_parse(
-        hand: yajl_handle,
-        jsonText: *const libc::c_uchar,
-        jsonTextLength: usize,
-    ) -> yajl_status;
-    fn yajl_complete_parse(hand: yajl_handle) -> yajl_status;
-    fn yajl_get_error(
-        hand: yajl_handle,
-        verbose: libc::c_int,
-        jsonText: *const libc::c_uchar,
-        jsonTextLength: usize,
-    ) -> *mut libc::c_uchar;
-    fn yajl_parse_integer(number: *const libc::c_uchar, length: libc::c_uint) -> libc::c_longlong;
-}
+//     #[cfg_attr(target_os = "android", link_name = "__errno")]
+//     fn __errno_location() -> *mut libc::c_int;
+//     // fn yajl_alloc(
+//     //     callbacks: *const yajl_callbacks,
+//     //     afs: *mut yajl_alloc_funcs,
+//     //     ctx: *mut libc::c_void,
+//     // ) -> yajl_handle;
+//     fn yajl_config(h: yajl_handle, opt: yajl_option, _: ...) -> libc::c_int;
+//     fn yajl_free(handle: yajl_handle);
+//     fn yajl_parse(
+//         hand: yajl_handle,
+//         jsonText: *const libc::c_uchar,
+//         jsonTextLength: usize,
+//     ) -> yajl_status;
+//     fn yajl_complete_parse(hand: yajl_handle) -> yajl_status;
+//     fn yajl_get_error(
+//         hand: yajl_handle,
+//         verbose: libc::c_int,
+//         jsonText: *const libc::c_uchar,
+//         jsonTextLength: usize,
+//     ) -> *mut libc::c_uchar;
+//     fn yajl_parse_integer(number: *const libc::c_uchar, length: libc::c_uint) -> libc::c_longlong;
+// }
 pub type yajl_malloc_func =
     Option<unsafe extern "C" fn(*mut libc::c_void, usize) -> *mut libc::c_void>;
 pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
@@ -128,6 +130,23 @@ pub const yajl_allow_multiple_values: yajl_option = 8;
 pub const yajl_allow_trailing_garbage: yajl_option = 4;
 pub const yajl_dont_validate_strings: yajl_option = 2;
 pub const yajl_allow_comments: yajl_option = 1;
+type Errno = libc::c_int;
+fn get_last_error() -> Errno {
+    // SAFETY:
+    //  The only way to safely access the referenced errno is to use either
+    //  `get_last_error` or `set_last_error`, ensuring that no one currently
+    //  holds a mutable reference to the underlying value.
+    unsafe { *libc::__errno_location() }
+}
+
+fn set_last_error(code: Errno) {
+    // SAFETY:
+    //  The only way to safely access the referenced errno is to use either
+    //  `set_last_error` or `get_last_error`, ensuring that no one currently
+    //  holds any reference to the underlying value.
+    unsafe { *libc::__errno_location() = code };
+}
+
 unsafe extern "C" fn value_alloc(mut type_0: yajl_type) -> yajl_val {
     let mut v: yajl_val = std::ptr::null_mut::<yajl_val_s>();
     v = libc::malloc(::core::mem::size_of::<yajl_val_s>()) as yajl_val;
@@ -423,18 +442,18 @@ unsafe extern "C" fn handle_number(
     );
     *((*v).u.number.r).add(string_length) = 0 as libc::c_int as libc::c_char;
     (*v).u.number.flags = 0 as libc::c_int as libc::c_uint;
-    *__errno_location() = 0 as libc::c_int;
+    set_last_error(0);
     (*v).u.number.i = yajl_parse_integer(
         (*v).u.number.r as *const libc::c_uchar,
         libc::strlen((*v).u.number.r) as libc::c_uint,
     );
-    if *__errno_location() == 0 as libc::c_int {
+    if get_last_error() == 0 as libc::c_int {
         (*v).u.number.flags |= 0x1 as libc::c_int as libc::c_uint;
     }
     endptr = std::ptr::null_mut::<libc::c_char>();
-    *__errno_location() = 0 as libc::c_int;
+    set_last_error(0);
     (*v).u.number.d = libc::strtod((*v).u.number.r, &mut endptr);
-    if *__errno_location() == 0 as libc::c_int
+    if get_last_error() == 0 as libc::c_int
         && !endptr.is_null()
         && *endptr as libc::c_int == 0 as libc::c_int
     {
@@ -664,10 +683,10 @@ pub unsafe extern "C" fn yajl_tree_parse(
                 internal_err_str as *mut libc::c_void,
             );
         }
-        yajl_free(handle);
+        yajl_handle_t::free(handle);
         return 0 as yajl_val;
     }
-    yajl_free(handle);
+    yajl_handle_t::free(handle);
     ctx.root
 }
 

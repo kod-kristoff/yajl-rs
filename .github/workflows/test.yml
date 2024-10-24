@@ -161,6 +161,57 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           env_vars: OS,RUST
 
+  run-c-examples:
+    # build and run C examples using yajl-clib
+    runs-on: ubuntu-latest
+    name: ubuntu / c-example / ${{ matrix.example }}
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - "parse-config"
+          - "json-verify"
+          - "json-reformat"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: cargo generate-lockfile
+        if: hashFiles('Cargo.lock') == ''
+        run: cargo generate-lockfile
+      - name: run example ${{ matrix.example }}
+        # run: cargo llvm-cov --locked --all-features --lcov --output-path lcov.info
+        run: make run-${{ matrix.example }}
+      - name: Record Rust version
+        run: echo "RUST=$(rustc --version)" >> "$GITHUB_ENV"
+  run-rust-examples:
+    # build and run Rust examples using yajl
+    runs-on: ubuntu-latest
+    name: ubuntu / rust-example / ${{ matrix.example }}
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - "parse-config"
+          - "json-verify"
+          - "json-reformat"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: cargo generate-lockfile
+        if: hashFiles('Cargo.lock') == ''
+        run: cargo generate-lockfile
+      - name: run example ${{ matrix.example }}
+        # run: cargo llvm-cov --locked --all-features --lcov --output-path lcov.info
+        run: make run-${{ matrix.example }}-rs
+      - name: Record Rust version
+        run: echo "RUST=$(rustc --version)" >> "$GITHUB_ENV"
+
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
   test-check:
     if: always()
@@ -169,6 +220,8 @@ jobs:
       - minimal
       - os-check
       - coverage
+      - run-c-examples
+      - run-rust-examples
     runs-on: ubuntu-latest
     permissions: {}
     steps:

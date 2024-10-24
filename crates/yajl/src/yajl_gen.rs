@@ -113,6 +113,79 @@ pub unsafe extern "C" fn yajl_gen_config(
     }
     return rv;
 }
+#[cfg(not(feature = "nightly"))]
+pub unsafe extern "C" fn yajl_gen_config_set_indent(
+    mut g: yajl_gen,
+    mut opt: yajl_gen_option,
+    mut indent: *const libc::c_char,
+) -> libc::c_int {
+    let mut rv: libc::c_int = 1;
+    match opt as libc::c_uint {
+        2 => {
+            (*g).indentString = indent;
+            while *indent != 0 {
+                if *indent as libc::c_int != '\n' as i32
+                    && *indent as libc::c_int != '\u{b}' as i32
+                    && *indent as libc::c_int != '\u{c}' as i32
+                    && *indent as libc::c_int != '\t' as i32
+                    && *indent as libc::c_int != '\r' as i32
+                    && *indent as libc::c_int != ' ' as i32
+                {
+                    (*g).indentString = 0 as *const libc::c_char;
+                    rv = 0 as libc::c_int;
+                }
+                indent = indent.offset(1);
+            }
+        }
+        _ => {
+            rv = 0 as libc::c_int;
+        }
+    }
+    rv
+}
+
+#[cfg(not(feature = "nightly"))]
+pub unsafe extern "C" fn yajl_gen_config(
+    mut g: yajl_gen,
+    mut opt: yajl_gen_option,
+    mut arg: libc::c_int,
+) -> libc::c_int {
+    let mut rv: libc::c_int = 1 as libc::c_int;
+    match opt as libc::c_uint {
+        1 | 8 | 16 => {
+            if arg != 0 {
+                (*g).flags |= opt as libc::c_uint;
+            } else {
+                (*g).flags &= !(opt as libc::c_uint);
+            }
+        }
+        _ => {
+            rv = 0 as libc::c_int;
+        }
+    }
+    return rv;
+}
+#[cfg(not(feature = "nightly"))]
+pub unsafe extern "C" fn yajl_gen_config_print_callback(
+    mut g: yajl_gen,
+    mut opt: yajl_gen_option,
+    mut arg: libc::c_int,
+    print: unsafe extern "C" fn(*mut libc::c_void, *const libc::c_char, usize) -> (),
+    ctx: *mut libc::c_void,
+) -> libc::c_int {
+    let mut rv: libc::c_int = 1 as libc::c_int;
+    match opt as libc::c_uint {
+        4 => {
+            yajl_buf_free((*g).ctx as yajl_buf);
+            (*g).print = Some(print);
+            (*g).ctx = ctx;
+        }
+        _ => {
+            rv = 0 as libc::c_int;
+        }
+    }
+    return rv;
+}
 pub unsafe extern "C" fn yajl_gen_alloc(mut afs: *const yajl_alloc_funcs) -> yajl_gen {
     let mut g: yajl_gen = 0 as yajl_gen;
     let mut afsBuffer: yajl_alloc_funcs = yajl_alloc_funcs {

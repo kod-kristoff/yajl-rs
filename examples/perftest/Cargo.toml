@@ -1,0 +1,9 @@
+[package]
+name = "perftest"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+yajl = { workspace = true }
+# yajl-clib = { workspace = true }
+libc = { workspace = true }
