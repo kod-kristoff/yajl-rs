@@ -505,7 +505,7 @@ impl Parser {
                                     (*self.decodeBuf).append(buf as *const c_void, bufLen);
                                     buf = (*self.decodeBuf).data();
                                     let (d, d_is_error) = if let Some(s) =
-                                        CStr::from_ptr(buf as *const i8).to_str().ok()
+                                        CStr::from_ptr(buf.cast()).to_str().ok()
                                     {
                                         if let Some((d, d_len)) = strtod::strtod(s) {
                                             (d, false)
