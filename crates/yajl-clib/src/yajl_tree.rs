@@ -23,7 +23,8 @@ pub unsafe extern "C" fn yajl_tree_parse(
             let mut msg = b"NULL input\0";
             let err_buf = slice::from_raw_parts_mut(error_buffer, error_buffer_size);
             if error_buffer_size > msg.len() {
-                err_buf[..msg.len()].copy_from_slice(&*(msg as *const [u8] as *const [i8]));
+                err_buf[..msg.len()].copy_from_slice(&msg[..]);
+                // err_buf[..msg.len()].copy_from_slice(&*(msg as *const [u8] as *const [i8]));
             }
         }
         return ptr::null_mut();
