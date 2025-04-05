@@ -1,6 +1,12 @@
 use ::libc;
 use core::ffi::c_void;
 
+pub trait AllocFuncs {
+    unsafe fn malloc_func(&self, size: usize) -> *mut libc::c_void;
+    unsafe fn free_func(&self, p: *mut libc::c_void);
+    unsafe fn realloc_func(&self, p: *mut libc::c_void, size: usize) -> *mut libc::c_void;
+}
+
 pub type yajl_malloc_func =
     Option<unsafe extern "C" fn(*mut libc::c_void, usize) -> *mut libc::c_void>;
 pub type yajl_free_func = Option<unsafe extern "C" fn(*mut libc::c_void, *mut libc::c_void) -> ()>;
@@ -19,6 +25,22 @@ pub unsafe trait AllocFuncs {
     fn realloc(ptr: *mut c_void, len: usize) -> *mut c_void;
     fn free(ptr: *mut c_void);
 }
+
+impl AllocFuncs for yajl_alloc_funcs {
+    unsafe fn malloc_func(&self, size: usize) -> *mut libc::c_void {
+        debug_assert!(!self.malloc.is_none());
+        (self.malloc.expect("non-none fn pointer"))(self.ctx, size)
+    }
+    unsafe fn free_func(&self, p: *mut libc::c_void) {
+        debug_assert!(!self.free.is_none());
+        (self.free.expect("non-none fn pointer"))(self.ctx, p)
+    }
+    unsafe fn realloc_func(&self, p: *mut libc::c_void, size: usize) -> *mut libc::c_void {
+        debug_assert!(!self.realloc.is_none());
+        (self.realloc.expect("non-none fn pointer"))(self.ctx, p, size)
+    }
+}
+
 unsafe extern "C" fn yajl_internal_malloc(
     mut ctx: *mut libc::c_void,
     mut sz: usize,
