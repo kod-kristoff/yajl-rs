@@ -1,4 +1,5 @@
 use ::libc;
+use core::ffi::c_void;
 
 pub type yajl_malloc_func =
     Option<unsafe extern "C" fn(*mut libc::c_void, usize) -> *mut libc::c_void>;
@@ -12,6 +13,11 @@ pub struct yajl_alloc_funcs {
     pub realloc: yajl_realloc_func,
     pub free: yajl_free_func,
     pub ctx: *mut libc::c_void,
+}
+pub unsafe trait AllocFuncs {
+    fn malloc(len: usize) -> *mut c_void;
+    fn realloc(ptr: *mut c_void, len: usize) -> *mut c_void;
+    fn free(ptr: *mut c_void);
 }
 unsafe extern "C" fn yajl_internal_malloc(
     mut ctx: *mut libc::c_void,
