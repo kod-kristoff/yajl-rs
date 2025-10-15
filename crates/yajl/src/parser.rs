@@ -11,8 +11,54 @@ use crate::{
     Status,
 };
 
+pub use self::rparser::RParser;
+
 mod lexer;
 mod parser_impl;
+mod rparser;
+
+#[derive(Default, Debug, Copy, Clone)]
+pub struct ParserOptions {
+    flags: u32,
+}
+
+impl ParserOptions {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn set_flag(&mut self, opt: ParserOption, arg: bool) {
+        if arg {
+            self.flags |= opt as u32;
+        } else {
+            self.flags &= !(opt as u32);
+        }
+    }
+
+    pub fn allow_comments(&self) -> bool {
+        (self.flags & ParserOption::AllowComments as u32) != 0
+    }
+
+    pub fn dont_validate_string(&self) -> bool {
+        (self.flags & ParserOption::DontValidateStrings as u32) != 0
+    }
+
+    pub fn allow_multiple_values(&self) -> bool {
+        (self.flags & ParserOption::DontValidateStrings as u32) != 0
+    }
+
+    pub fn set_allow_comments(&mut self, arg: bool) {
+        self.set_flag(ParserOption::AllowComments, arg)
+    }
+
+    pub fn set_dont_validate_strings(&mut self, arg: bool) {
+        self.set_flag(ParserOption::DontValidateStrings, arg);
+    }
+
+    pub fn set_allow_multiple_values(&mut self, arg: bool) {
+        self.set_flag(ParserOption::AllowMultipleValues, arg);
+    }
+}
 
 #[derive(Clone, Debug)]
 #[repr(C)]

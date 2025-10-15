@@ -92,6 +92,9 @@ run-json-verify: bin/json_verify
 run-json-verify-rs:
 	cargo run --package json-verify -- -c < assets/sample.config
 
+run-json-verify-r-rs:
+	cargo run --package json-verify-r -- -c < assets/sample.config
+
 run-json-reformat: bin/json_reformat
 	LD_LIBRARY_PATH=target/debug bin/json_reformat < assets/sample.config
 

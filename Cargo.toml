@@ -8,6 +8,7 @@ members = [
     "examples/perftest",
     "examples/parse-config",
     "examples/json-verify",
+    "examples/json-verify-r",
     "examples/json-reformat",
 ]
 
