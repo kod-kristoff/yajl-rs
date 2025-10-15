@@ -1,0 +1,8 @@
+[package]
+name = "json-parser-demo"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+logos = "0.15.1"

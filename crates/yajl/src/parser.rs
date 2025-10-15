@@ -11,8 +11,11 @@ use crate::{
     Status,
 };
 
+pub use self::rparser::RParser;
+
 mod lexer;
 mod parser_impl;
+mod rparser;
 
 #[derive(Clone, Debug)]
 #[repr(C)]
