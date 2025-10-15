@@ -504,17 +504,16 @@ impl Parser {
                                     (*self.decodeBuf).clear();
                                     (*self.decodeBuf).append(buf as *const c_void, bufLen);
                                     buf = (*self.decodeBuf).data();
-                                    let (d, d_is_error) = if let Some(s) =
-                                        CStr::from_ptr(buf.cast()).to_str().ok()
-                                    {
-                                        if let Some((d, d_len)) = strtod::strtod(s) {
-                                            (d, false)
+                                    let (d, d_is_error) =
+                                        if let Some(s) = CStr::from_ptr(buf.cast()).to_str().ok() {
+                                            if let Some((d, d_len)) = strtod::strtod(s) {
+                                                (d, false)
+                                            } else {
+                                                (0f64, true)
+                                            }
                                         } else {
                                             (0f64, true)
-                                        }
-                                    } else {
-                                        (0f64, true)
-                                    };
+                                        };
 
                                     if d_is_error {
                                         *self.stateStack.top_mut() = ParseState::ParseError;
