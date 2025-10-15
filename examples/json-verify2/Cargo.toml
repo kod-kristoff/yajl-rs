@@ -1,0 +1,10 @@
+[package]
+name = "json-verify2"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+yajl = { workspace = true }
+libc = { workspace = true }
+yajlir.workspace = true

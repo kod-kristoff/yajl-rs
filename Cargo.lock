@@ -220,6 +220,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "json-verify2"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "yajl",
+ "yajlir",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -592,3 +601,7 @@ dependencies = [
  "libc",
  "yajl",
 ]
+
+[[package]]
+name = "yajlir"
+version = "0.1.0"

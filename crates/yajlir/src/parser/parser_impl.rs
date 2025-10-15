@@ -1,0 +1,127 @@
+use crate::parser::{lexer::Token, ParseState};
+
+use super::{ParseError, Parser};
+
+impl Parser {
+    fn set_error(&mut self, error: ParseError) {
+        self.error = Some(error);
+        *self.state_stack.last_mut().unwrap() = ParseState::ParseError;
+    }
+    fn set_stack_top(&mut self, top: ParseState) {
+        *self
+            .state_stack
+            .last_mut()
+            .expect("state should always have at least one elem") = top;
+    }
+    pub(crate) fn do_parse(&mut self, text: &[u8]) -> Result<(), ParseError> {
+        let mut offset = 0;
+        loop {
+            dbg!(&self.state_stack);
+            match self
+                .state_stack
+                .last()
+                .expect("parser_impl/do_parse: state_stack should have at least one elem")
+            {
+                ParseState::ParseError => {
+                    let error = self.error.clone().unwrap();
+                    return Err(error);
+                }
+                ParseState::Start | ParseState::MapNeedVal => {
+                    let mut state_to_push = ParseState::Start;
+                    let tok = self.lexer.lex(text, &mut offset);
+                    let mut valid_token = false;
+                    match tok {
+                        Ok(Token::String) => {
+                            dbg!("callback string");
+                            valid_token = true;
+                        }
+                        Ok(Token::LeftCurlyBracket) => {
+                            dbg!("callback start_map");
+                            state_to_push = ParseState::MapStart;
+                            valid_token = true;
+                        }
+                        t => todo!("handle tok={:?}", t),
+                    }
+                    dbg!(&state_to_push);
+                    if valid_token {
+                        match self.state_stack.last().unwrap() {
+                            ParseState::MapNeedVal => {
+                                *self.state_stack.last_mut().unwrap() = ParseState::MapGotVal;
+                            }
+                            _ => {}
+                        }
+                        if state_to_push != ParseState::Start {
+                            self.state_stack.push(state_to_push);
+                        }
+                    } else {
+                        self.set_error(ParseError::UnallowedToken);
+                    }
+                }
+                ParseState::MapStart | ParseState::MapNeedKey => {
+                    let tok = self.lexer.lex(text, &mut offset);
+                    let mut found_key = false;
+                    match tok {
+                        Ok(Token::Eof) => return Ok(()),
+                        Ok(Token::String) => {
+                            found_key = true;
+                        }
+                        _ => {
+                            self.set_error(ParseError::InvalidObjectKey);
+                        }
+                    }
+
+                    if found_key {
+                        *self.state_stack.last_mut().unwrap() = ParseState::MapSep;
+                    }
+                }
+                ParseState::MapSep => {
+                    let tok = self.lexer.lex(text, &mut offset);
+                    match tok {
+                        Ok(Token::Eof) => return Ok(()),
+                        Ok(Token::Colon) => {
+                            *self.state_stack.last_mut().unwrap() = ParseState::MapNeedVal;
+                        }
+                        _ => {
+                            self.set_error(ParseError::InvalidKeyValueSeparator);
+                        }
+                    }
+                }
+                ParseState::MapGotVal => {
+                    let tok = self.lexer.lex(text, &mut offset);
+                    dbg!(&tok);
+                    match tok {
+                        Ok(Token::Comma) => {
+                            self.set_stack_top(ParseState::MapNeedKey);
+                        }
+                        _ => {
+                            self.set_error(ParseError::InvalidObjectSeparator);
+                            // offset -= bufLen
+                        }
+                    }
+                }
+            }
+        }
+        todo!()
+    }
+
+    pub(crate) fn do_finish(&mut self) -> Result<(), ParseError> {
+        self.do_parse(b" ")?;
+
+        match self.state_stack.last().unwrap() {
+            ParseState::ParseError => {
+                let error = self.error.clone().unwrap();
+                Err(error)
+            }
+            _ => {
+                if self.options.allow_partial_values {
+                    Ok(())
+                } else {
+                    let error = ParseError::PrematureEof;
+                    self.error = Some(error.clone());
+                    *self.state_stack.last_mut().unwrap() = ParseState::ParseError;
+                    Err(error)
+                }
+            }
+        }
+    }
+}
