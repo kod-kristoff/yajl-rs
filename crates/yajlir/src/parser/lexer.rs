@@ -15,14 +15,23 @@ use std::ops::Range;
 // }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
 pub enum Token {
-    LeftCurlyBracket,
-    Comma,
-    Colon,
-    String,
-    Comment,
-    Error,
-    Eof,
+    Bool = 0,
+    Colon = 1,
+    Comma = 2,
+    Eof = 3,
+    Error = 4,
+    LeftSquareBracket = 5,
+    LeftCurlyBracket = 6,
+    Null = 7,
+    RightSquareBracket = 8,
+    RightCurlyBracket = 9,
+    Integer = 10,
+    Double = 11,
+    String = 12,
+    StringWithEscapes = 13,
+    Comment = 14,
 }
 
 /* a lookup table which lets us quickly determine three things:
@@ -128,6 +137,18 @@ impl Lexer {
                     tok = Token::LeftCurlyBracket;
                     break;
                 }
+                b'}' => {
+                    tok = Token::RightCurlyBracket;
+                    break;
+                }
+                b'[' => {
+                    tok = Token::LeftSquareBracket;
+                    break;
+                }
+                b']' => {
+                    tok = Token::RightSquareBracket;
+                    break;
+                }
                 b',' => {
                     tok = Token::Comma;
                     break;
@@ -136,12 +157,18 @@ impl Lexer {
                     tok = Token::Colon;
                     break;
                 }
-                b'\n' | b' ' => {
+                b'\t' | b'\n' | b'\x0B' | b'\x0C' | b'\r' | b' ' => {
                     start_offset += 1;
                 }
+                b't' => todo!("true"),
+                b'f' => todo!("false"),
+                b'n' => todo!("null"),
                 b'"' => {
                     tok = self.string(text, offset);
                     break;
+                }
+                b'-' | b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' => {
+                    todo!("number")
                 }
                 b'/' => {
                     // kind = TokenKind::Comment;
@@ -160,7 +187,11 @@ impl Lexer {
                     start_offset = *offset;
                     continue;
                 }
-                ch => todo!(" handle c={}", ch),
+                _invalid_char => {
+                    self.error = Some(LexError::InvalidChar);
+                    tok = Token::Error;
+                    // todo!(" handle c={}", ch)},
+                    // TODO: return error here
             }
         }
         dbg!(&tok);
