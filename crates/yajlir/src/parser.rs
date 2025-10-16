@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::parser::lexer::Lexer;
+use crate::parser::{lexer::Lexer, parser_impl::ParseState};
 
 mod lexer;
 mod parser_impl;
@@ -30,18 +30,6 @@ pub struct Parser {
     state_stack: Vec<ParseState>,
     options: ParserOptions,
     error: Option<ParseError>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[repr(u8)]
-enum ParseState {
-    Start,
-    MapStart,
-    MapSep,
-    MapNeedVal,
-    MapGotVal,
-    MapNeedKey,
-    ParseError,
 }
 
 impl Parser {

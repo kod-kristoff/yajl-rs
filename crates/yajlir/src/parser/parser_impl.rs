@@ -1,7 +1,17 @@
-use crate::parser::{lexer::Token, ParseState};
+use crate::parser::lexer::Token;
 
 use super::{ParseError, Parser};
-
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ParseState {
+    Start,
+    MapStart,
+    MapSep,
+    MapNeedVal,
+    MapGotVal,
+    MapNeedKey,
+    ParseError,
+}
 impl Parser {
     fn set_error(&mut self, error: ParseError) {
         self.error = Some(error);
