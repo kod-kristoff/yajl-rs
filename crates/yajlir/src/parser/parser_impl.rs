@@ -1,17 +1,25 @@
 use crate::parser::lexer::Token;
 
 use super::{ParseError, Parser};
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum ParseState {
-    Start,
-    MapStart,
-    MapSep,
-    MapNeedVal,
-    MapGotVal,
-    MapNeedKey,
-    ParseError,
+    Start = 0,
+    ParseComplete = 1,
+    ParseError = 2,
+    LexicalError = 3,
+    MapStart = 4,
+    MapSep = 5,
+    MapNeedVal = 6,
+    MapGotVal = 7,
+    MapNeedKey = 8,
+    ArrayStart = 9,
+    ArrayGotVal = 10,
+    ArrayNeedVal = 11,
+    GotValue = 12,
 }
+
 impl Parser {
     fn set_error(&mut self, error: ParseError) {
         self.error = Some(error);
@@ -56,7 +64,7 @@ impl Parser {
                     if valid_token {
                         match self.state_stack.last().unwrap() {
                             ParseState::MapNeedVal => {
-                                *self.state_stack.last_mut().unwrap() = ParseState::MapGotVal;
+                                self.set_stack_top(ParseState::MapGotVal);
                             }
                             _ => {}
                         }
@@ -81,7 +89,7 @@ impl Parser {
                     }
 
                     if found_key {
-                        *self.state_stack.last_mut().unwrap() = ParseState::MapSep;
+                        self.set_stack_top(ParseState::MapSep);
                     }
                 }
                 ParseState::MapSep => {
@@ -89,7 +97,7 @@ impl Parser {
                     match tok {
                         Ok(Token::Eof) => return Ok(()),
                         Ok(Token::Colon) => {
-                            *self.state_stack.last_mut().unwrap() = ParseState::MapNeedVal;
+                            self.set_stack_top(ParseState::MapNeedVal);
                         }
                         _ => {
                             self.set_error(ParseError::InvalidKeyValueSeparator);
@@ -109,6 +117,7 @@ impl Parser {
                         }
                     }
                 }
+                state => todo!("handle top={:?}", state),
             }
         }
         todo!()
@@ -127,8 +136,7 @@ impl Parser {
                     Ok(())
                 } else {
                     let error = ParseError::PrematureEof;
-                    self.error = Some(error.clone());
-                    *self.state_stack.last_mut().unwrap() = ParseState::ParseError;
+                    self.set_error(error.clone());
                     Err(error)
                 }
             }

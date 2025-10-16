@@ -192,6 +192,7 @@ impl Lexer {
                     tok = Token::Error;
                     // todo!(" handle c={}", ch)},
                     // TODO: return error here
+                }
             }
         }
         dbg!(&tok);
