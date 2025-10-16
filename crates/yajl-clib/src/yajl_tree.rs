@@ -20,11 +20,14 @@ pub unsafe extern "C" fn yajl_tree_parse(
 ) -> yajl_val {
     if input.is_null() {
         if !error_buffer.is_null() {
-            let mut msg = b"NULL input\0";
+            let msg = b"NULL input\0";
+            let msg_len = msg.len();
+            // let msg = msg as *const u8 as *const libc::c_char;
             let err_buf = slice::from_raw_parts_mut(error_buffer, error_buffer_size);
-            if error_buffer_size > msg.len() {
-                err_buf[..msg.len()].copy_from_slice(&msg[..]);
-                // err_buf[..msg.len()].copy_from_slice(&*(msg as *const [u8] as *const [i8]));
+            if error_buffer_size > msg_len {
+                // err_buf[..msg_len].copy_from_slice(&*(msg as *const [libc::c_char]));
+                err_buf[..msg.len()]
+                    .copy_from_slice(&*(msg as *const [u8] as *const [libc::c_char]));
             }
         }
         return ptr::null_mut();
