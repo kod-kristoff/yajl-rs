@@ -31,20 +31,26 @@ impl Parser {
             .last_mut()
             .expect("state should always have at least one elem") = top;
     }
+    fn get_stack_top(&mut self) -> ParseState {
+        self.state_stack
+            .last()
+            .copied()
+            .expect("state should always have at least one elem")
+    }
     pub(crate) fn do_parse(&mut self, text: &[u8]) -> Result<(), ParseError> {
         let mut offset = 0;
         loop {
             dbg!(&self.state_stack);
-            match self
-                .state_stack
-                .last()
-                .expect("parser_impl/do_parse: state_stack should have at least one elem")
-            {
+            let top = self.get_stack_top();
+            match top {
                 ParseState::ParseError => {
                     let error = self.error.clone().unwrap();
                     return Err(error);
                 }
-                ParseState::Start | ParseState::MapNeedVal => {
+                ParseState::Start
+                | ParseState::MapNeedVal
+                | ParseState::ArrayNeedVal
+                | ParseState::ArrayStart => {
                     let mut state_to_push = ParseState::Start;
                     let tok = self.lexer.lex(text, &mut offset);
                     let mut valid_token = false;
@@ -58,15 +64,22 @@ impl Parser {
                             state_to_push = ParseState::MapStart;
                             valid_token = true;
                         }
+                        Ok(Token::LeftSquareBracket) => {
+                            dbg!("callback start_array");
+                            state_to_push = ParseState::ArrayStart;
+                            valid_token = true;
+                        }
                         t => todo!("handle tok={:?}", t),
                     }
                     dbg!(&state_to_push);
                     if valid_token {
-                        match self.state_stack.last().unwrap() {
+                        match self.get_stack_top() {
                             ParseState::MapNeedVal => {
                                 self.set_stack_top(ParseState::MapGotVal);
                             }
-                            _ => {}
+                            _ => {
+                                self.set_stack_top(ParseState::ArrayGotVal);
+                            }
                         }
                         if state_to_push != ParseState::Start {
                             self.state_stack.push(state_to_push);
@@ -115,6 +128,18 @@ impl Parser {
                             self.set_error(ParseError::InvalidObjectSeparator);
                             // offset -= bufLen
                         }
+                    }
+                }
+                ParseState::ArrayGotVal => {
+                    let tok = self.lexer.lex(text, &mut offset);
+                    dbg!(&tok);
+                    match tok {
+                        Ok(Token::Comma) => self.set_stack_top(ParseState::ArrayNeedVal),
+                        Ok(Token::RightSquareBracket) => {
+                            dbg!("callback end_array");
+                            self.state_stack.pop();
+                        }
+                        _ => todo!("handle tok={:?}", tok),
                     }
                 }
                 state => todo!("handle top={:?}", state),

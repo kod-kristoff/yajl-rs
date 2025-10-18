@@ -120,6 +120,9 @@ impl Lexer {
             todo!()
         }
     }
+    fn set_error(&mut self, error: LexError) {
+        self.error = Some(error);
+    }
     pub fn lex(&mut self, text: &[u8], offset: &mut usize) -> Result<Token, LexError> {
         // let mut kind = TokenKind::LeftCurlyBrace;
         let mut start_offset = *offset;
@@ -160,15 +163,80 @@ impl Lexer {
                 b'\t' | b'\n' | b'\x0B' | b'\x0C' | b'\r' | b' ' => {
                     start_offset += 1;
                 }
-                b't' => todo!("true"),
-                b'f' => todo!("false"),
-                b'n' => todo!("null"),
+                b't' => {
+                    let mut want = &b"rue"[..];
+                    loop {
+                        if *offset >= text.len() {
+                            tok = Token::Eof;
+                            break 'lex;
+                        }
+                        let c = self.read_char(text, offset);
+                        if c != want[0] {
+                            self.unread_char(offset);
+                            self.set_error(LexError::InvalidString);
+                            tok = Token::Error;
+                            break 'lex;
+                        }
+                        want = &want[1..];
+                        if want.is_empty() {
+                            break;
+                        }
+                    }
+                    tok = Token::Bool;
+                    break;
+                }
+                b'f' => {
+                    let mut want = &b"false"[..];
+                    loop {
+                        if *offset >= text.len() {
+                            tok = Token::Eof;
+                            break 'lex;
+                        }
+                        let c = self.read_char(text, offset);
+                        if c != want[0] {
+                            self.unread_char(offset);
+                            self.set_error(LexError::InvalidString);
+                            tok = Token::Error;
+                            break 'lex;
+                        }
+                        want = &want[1..];
+                        if want.is_empty() {
+                            break;
+                        }
+                    }
+                    tok = Token::Bool;
+                    break;
+                }
+                b'n' => {
+                    let mut want = &b"null"[..];
+                    loop {
+                        if *offset >= text.len() {
+                            tok = Token::Eof;
+                            break 'lex;
+                        }
+                        let c = self.read_char(text, offset);
+                        if c != want[0] {
+                            self.unread_char(offset);
+                            self.set_error(LexError::InvalidString);
+                            tok = Token::Error;
+                            break 'lex;
+                        }
+                        want = &want[1..];
+                        if want.is_empty() {
+                            break;
+                        }
+                    }
+                    tok = Token::Bool;
+                    break;
+                }
                 b'"' => {
                     tok = self.string(text, offset);
                     break;
                 }
                 b'-' | b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' => {
-                    todo!("number")
+                    self.unread_char(offset);
+                    tok = self.number(text, offset);
+                    break;
                 }
                 b'/' => {
                     // kind = TokenKind::Comment;
@@ -200,10 +268,91 @@ impl Lexer {
         Ok(tok)
     }
 
+    fn number(&mut self, text: &[u8], offset: &mut usize) -> Token {
+        let mut tok = Token::Integer;
+        let mut c = self.read_char(text, offset);
+        if c == b'-' {
+            if *offset >= text.len() {
+                return Token::Eof;
+            }
+            c = self.read_char(text, offset);
+        }
+
+        if c == b'0' {
+            if *offset >= text.len() {
+                return Token::Eof;
+            }
+            c = self.read_char(text, offset);
+        } else if b'1' <= c && c <= b'9' {
+            loop {
+                if *offset >= text.len() {
+                    return Token::Eof;
+                }
+                c = self.read_char(text, offset);
+                if !(b'0' <= c && c <= b'9') {
+                    break;
+                }
+            }
+        } else {
+            self.unread_char(offset);
+            self.set_error(LexError::MissingIntegerAfterMinus);
+            return Token::Error;
+        }
+        if c == b'.' {
+            if *offset >= text.len() {
+                return Token::Eof;
+            }
+            let mut num_rd = 0;
+            c = self.read_char(text, offset);
+            while b'0' <= c && c <= b'9' {
+                num_rd += 1;
+                if *offset >= text.len() {
+                    return Token::Eof;
+                }
+                c = self.read_char(text, offset);
+            }
+            if num_rd == 0 {
+                self.unread_char(offset);
+                self.set_error(LexError::MissingIntegerAfterDecimal);
+                return Token::Error;
+            }
+            tok = Token::Double;
+        }
+        if c == b'e' || c == b'E' {
+            if *offset >= text.len() {
+                return Token::Eof;
+            }
+            c = self.read_char(text, offset);
+            if c == b'+' || c == b'-' {
+                if *offset >= text.len() {
+                    return Token::Eof;
+                }
+                c = self.read_char(text, offset);
+            }
+            if b'0' <= c && c <= b'9' {
+                loop {
+                    if *offset >= text.len() {
+                        return Token::Eof;
+                    }
+                    c = self.read_char(text, offset);
+                    if !(b'0' <= c && c <= b'9') {
+                        break;
+                    }
+                }
+            } else {
+                self.unread_char(offset);
+                self.set_error(LexError::MissingIntegerAfterExponent);
+                return Token::Error;
+            }
+            tok = Token::Double;
+        }
+        self.unread_char(offset);
+        tok
+    }
     fn string(&mut self, text: &[u8], offset: &mut usize) -> Token {
         let mut tok = Token::Error;
         let mut has_escapes = false;
-        loop {
+        'string: loop {
             /* now jump into a faster scanning routine to skip as much
              * of the buffers as possible */
             if *offset < text.len() {
@@ -214,15 +363,115 @@ impl Lexer {
                 tok = Token::Eof;
                 break;
             }
-            let curr_char = dbg!(self.read_char(text, offset));
+            let mut curr_char = dbg!(self.read_char(text, offset));
 
             if curr_char == b'"' {
                 tok = Token::String;
                 break;
+            } else if curr_char == b'\\' {
+                has_escapes = true;
+                if *offset >= text.len() {
+                    tok = Token::Eof;
+                    break;
+                }
+                dbg!(&has_escapes);
+                curr_char = dbg!(self.read_char(text, offset));
+                if curr_char == b'u' {
+                    let mut i = 0;
+                    while i < 4 {
+                        if *offset >= text.len() {
+                            tok = Token::Eof;
+                            break 'string;
+                        }
+                        curr_char = self.read_char(text, offset);
+                        if charLookupTable[curr_char as usize] & VHC == 0 {
+                            self.unread_char(offset);
+                            self.set_error(LexError::StringInvalidHexChar);
+                            tok = Token::Error;
+                            break 'string;
+                        }
+                        i += 1;
+                    }
+                } else if charLookupTable[curr_char as usize] & VEC == 0 {
+                    self.unread_char(offset);
+                    self.set_error(LexError::StringInvalidEscapedChar);
+                    tok = Token::Error;
+                    break;
+                }
+            } else if charLookupTable[curr_char as usize] & IJC != 0 {
+                self.unread_char(offset);
+                self.set_error(LexError::StringInvalidJsonChar);
+                tok = Token::Error;
+                break;
+            } else if self.validate_utf8 {
+                let t = self.utf8_char(text, offset, curr_char);
+                if t == Token::Eof {
+                    tok = Token::Eof;
+                    break;
+                } else if t == Token::Error {
+                    self.set_error(LexError::StringInvalidUtf8);
+                    break;
+                }
             }
-            todo!()
+
+            // accept it and move on
+        }
+        if has_escapes && tok == Token::String {
+            tok = Token::StringWithEscapes;
         }
         dbg!(tok)
+    }
+    fn utf8_char(&mut self, text: &[u8], offset: &mut usize, mut curr_char: u8) -> Token {
+        if curr_char <= 0x7f {
+            // single byte
+            return Token::String;
+        } else if (curr_char >> 5) == 0x6 {
+            // two bytes
+            if *offset >= text.len() {
+                return Token::Eof;
+            }
+            curr_char = self.read_char(text, offset);
+            if (curr_char >> 6) == 0x2 {
+                return Token::String;
+            }
+        } else if (curr_char >> 4) == 0x0e {
+            // three bytes
+            if *offset >= text.len() {
+                return Token::Eof;
+            }
+            curr_char = self.read_char(text, offset);
+            if (curr_char >> 6) == 0x2 {
+                if *offset >= text.len() {
+                    return Token::Eof;
+                }
+                curr_char = self.read_char(text, offset);
+                if (curr_char >> 6) == 0x2 {
+                    return Token::String;
+                }
+            }
+        } else if (curr_char >> 3) == 0x1e {
+            // four bytes
+            if *offset >= text.len() {
+                return Token::Eof;
+            }
+            curr_char = self.read_char(text, offset);
+            if (curr_char >> 6) == 0x2 {
+                if *offset >= text.len() {
+                    return Token::Eof;
+                }
+                curr_char = self.read_char(text, offset);
+                if (curr_char >> 6) == 0x2 {
+                    if *offset >= text.len() {
+                        return Token::Eof;
+                    }
+                    curr_char = self.read_char(text, offset);
+                    if (curr_char >> 6) == 0x2 {
+                        return Token::String;
+                    }
+                }
+            }
+        }
+        Token::Error
     }
     fn comment(&mut self, text: &[u8], offset: &mut usize) -> Token {
         if *offset >= text.len() {
@@ -275,8 +524,92 @@ fn string_scan(buf: &[u8], utf8check: bool) -> usize {
     }
     skip
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+#[repr(u8)]
 pub enum LexError {
-    InvalidChar,
-    UnallowedComment,
+    Ok = 0,
+    StringInvalidUtf8 = 1,
+    StringInvalidEscapedChar = 2,
+    StringInvalidJsonChar = 3,
+    StringInvalidHexChar = 4,
+    InvalidChar = 5,
+    InvalidString = 6,
+    MissingIntegerAfterDecimal = 7,
+    MissingIntegerAfterExponent = 8,
+    MissingIntegerAfterMinus = 9,
+    UnallowedComment = 10,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn simple_string() {
+        let mut lexer = Lexer::new(true);
+        let s = b"simple\"";
+        let mut offset = 0;
+        let actual = lexer.string(s, &mut offset);
+        assert_eq!(actual, Token::String);
+    }
+
+    #[test]
+    fn escaped_string() {
+        let mut lexer = Lexer::new(true);
+        let s = &[67, 78, 89, 35, 34];
+        let mut offset = 0;
+        let actual = lexer.string(s, &mut offset);
+        assert_eq!(actual, Token::String);
+    }
+
+    #[test]
+    fn string_w_ijc() {
+        let mut lexer = Lexer::new(true);
+        let s = &[67, 10, 34];
+        let mut offset = 0;
+        let actual = lexer.string(s, &mut offset);
+        assert_eq!(actual, Token::Error);
+        assert_eq!(lexer.error, Some(LexError::StringInvalidJsonChar));
+    }
+
+    #[test]
+    fn string_w_not_vhc() {
+        let mut lexer = Lexer::new(true);
+        let s = &[92, 117, 40, 42, 43, 44, 34];
+        let mut offset = 0;
+        let actual = lexer.string(s, &mut offset);
+        assert_eq!(actual, Token::Error);
+        assert_eq!(lexer.error, Some(LexError::StringInvalidHexChar));
+    }
+
+    #[test]
+    fn string_w_not_vec() {
+        let mut lexer = Lexer::new(true);
+        let s = &[92, 20, 40, 42, 43, 44, 34];
+        let mut offset = 0;
+        let actual = lexer.string(s, &mut offset);
+        assert_eq!(actual, Token::Error);
+        assert_eq!(lexer.error, Some(LexError::StringInvalidEscapedChar));
+    }
+
+    #[test]
+    fn string_w_not_valid_utf8() {
+        let mut lexer = Lexer::new(true);
+        let s = &[250, 20, 40, 42, 43, 44, 34];
+        let mut offset = 0;
+        let actual = lexer.string(s, &mut offset);
+        assert_eq!(actual, Token::Error);
+        assert_eq!(lexer.error, Some(LexError::StringInvalidUtf8));
+    }
+
+    #[test]
+    fn strings_w_eof() {
+        let mut lexer = Lexer::new(true);
+        let strs = [b"s"];
+        let mut offset = 0;
+        for s in strs {
+            let actual = lexer.string(s, &mut offset);
+            assert_eq!(actual, Token::Eof);
+        }
+    }
 }
