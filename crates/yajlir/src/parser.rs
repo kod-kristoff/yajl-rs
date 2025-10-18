@@ -36,7 +36,10 @@ impl Parser {
     pub fn new(options: ParserOptions) -> Self {
         let state_stack = vec![ParseState::Start];
         Self {
-            lexer: Lexer::new(options.allow_comments),
+            lexer: Lexer::new(lexer::LexerOptions {
+                allow_comments: options.allow_comments,
+                validate_utf8: !options.dont_validate_strings,
+            }),
             state_stack,
             options,
             error: None,

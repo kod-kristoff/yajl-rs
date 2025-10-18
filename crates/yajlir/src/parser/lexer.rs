@@ -99,11 +99,36 @@ pub struct Lexer {
     error: Option<LexError>,
 }
 
+#[derive(Clone, Debug)]
+pub struct LexerOptions {
+    pub allow_comments: bool,
+    pub validate_utf8: bool,
+}
+
+impl Default for LexerOptions {
+    fn default() -> Self {
+        Self {
+            allow_comments: false,
+            validate_utf8: true,
+        }
+    }
+}
+
+impl Default for Lexer {
+    fn default() -> Self {
+        Self::new(LexerOptions::default())
+    }
+}
 impl Lexer {
-    pub fn new(allow_comments: bool) -> Self {
+    pub fn new(
+        LexerOptions {
+            allow_comments,
+            validate_utf8,
+        }: LexerOptions,
+    ) -> Self {
         Self {
             allow_comments,
-            validate_utf8: true,
+            validate_utf8,
             error: None,
         }
     }
@@ -383,8 +408,8 @@ impl Lexer {
                             tok = Token::Eof;
                             break 'string;
                         }
-                        curr_char = self.read_char(text, offset);
-                        if charLookupTable[curr_char as usize] & VHC == 0 {
+                        curr_char = dbg!(self.read_char(text, offset));
+                        if dbg!(charLookupTable[curr_char as usize]) & VHC == 0 {
                             self.unread_char(offset);
                             self.set_error(LexError::StringInvalidHexChar);
                             tok = Token::Error;
@@ -543,28 +568,32 @@ pub enum LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
-    #[test]
-    fn simple_string() {
-        let mut lexer = Lexer::new(true);
-        let s = b"simple\"";
+    #[rstest]
+    #[case("simple\"")]
+    #[case("nära\"")]
+    #[case("sࠉ\"")]
+    fn valid_string(#[case] s: &str) {
+        let mut lexer = Lexer::default();
         let mut offset = 0;
-        let actual = lexer.string(s, &mut offset);
+        let actual = lexer.string(s.as_bytes(), &mut offset);
         assert_eq!(actual, Token::String);
     }
 
     #[test]
     fn escaped_string() {
-        let mut lexer = Lexer::new(true);
-        let s = &[67, 78, 89, 35, 34];
+        let mut lexer = Lexer::default();
+        let s = &[67, 78, 92, 0x72, 34];
         let mut offset = 0;
         let actual = lexer.string(s, &mut offset);
-        assert_eq!(actual, Token::String);
+        dbg!(&offset);
+        assert_eq!(actual, Token::StringWithEscapes);
     }
 
     #[test]
     fn string_w_ijc() {
-        let mut lexer = Lexer::new(true);
+        let mut lexer = Lexer::default();
         let s = &[67, 10, 34];
         let mut offset = 0;
         let actual = lexer.string(s, &mut offset);
@@ -574,8 +603,8 @@ mod tests {
 
     #[test]
     fn string_w_not_vhc() {
-        let mut lexer = Lexer::new(true);
-        let s = &[92, 117, 40, 42, 43, 44, 34];
+        let mut lexer = Lexer::default();
+        let s = &[92, 117, 48, 48, 43, 43, 34];
         let mut offset = 0;
         let actual = lexer.string(s, &mut offset);
         assert_eq!(actual, Token::Error);
@@ -584,17 +613,18 @@ mod tests {
 
     #[test]
     fn string_w_not_vec() {
-        let mut lexer = Lexer::new(true);
+        let mut lexer = Lexer::default();
         let s = &[92, 20, 40, 42, 43, 44, 34];
         let mut offset = 0;
         let actual = lexer.string(s, &mut offset);
+        dbg!(&offset);
         assert_eq!(actual, Token::Error);
         assert_eq!(lexer.error, Some(LexError::StringInvalidEscapedChar));
     }
 
     #[test]
     fn string_w_not_valid_utf8() {
-        let mut lexer = Lexer::new(true);
+        let mut lexer = Lexer::default();
         let s = &[250, 20, 40, 42, 43, 44, 34];
         let mut offset = 0;
         let actual = lexer.string(s, &mut offset);
@@ -604,11 +634,25 @@ mod tests {
 
     #[test]
     fn strings_w_eof() {
-        let mut lexer = Lexer::new(true);
-        let strs = [b"s"];
-        let mut offset = 0;
+        let mut lexer = Lexer::default();
+        let strs = [
+            b"s",
+            [117, 92].as_slice(),
+            [92, 117, 48].as_slice(),
+            [0xe0].as_slice(),
+            [0xe0, 0xa0].as_slice(),
+            [0xe0, 0xa0, 0x80].as_slice(),
+            [0xf0].as_slice(),
+            [0xf0, 0x90].as_slice(),
+            [0xf0, 0x90, 0x80].as_slice(),
+            [0xf0, 0x90, 0x80, 0x80].as_slice(),
+        ];
         for s in strs {
+            dbg!(&s);
+            let mut offset = 0;
             let actual = lexer.string(s, &mut offset);
+            dbg!(&offset);
+            dbg!(&lexer.error);
             assert_eq!(actual, Token::Eof);
         }
     }

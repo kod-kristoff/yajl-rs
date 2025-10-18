@@ -5,3 +5,6 @@ version.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+
+[dev-dependencies]
+rstest = "0.26.1"
