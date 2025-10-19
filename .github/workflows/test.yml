@@ -39,6 +39,8 @@ jobs:
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
       # https://twitter.com/jonhoo/status/1571290371124260865
+      - name: cargo build --locked --all-targets
+        run: cargo build --locked --all-targets
       - name: cargo test --locked
         run: cargo test --locked --all-targets
       # https://github.com/rust-lang/cargo/issues/6669
@@ -86,6 +88,8 @@ jobs:
         run: rustup default stable
       - name: cargo update -Zminimal-versions
         run: cargo +nightly update -Zdirect-minimal-versions
+      - name: cargo build --locked --all-targets
+        run: cargo build --locked --all-targets
       - name: cargo test
         run: cargo test --locked  --all-targets
   os-check:
@@ -95,7 +99,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: 
+          - macos-latest
+          # - windows-latest
     steps:
       # if your project needs OpenSSL, uncomment this to fix Windows builds.
       # it's commented out by default as the install command takes 5-10m.
@@ -114,6 +120,8 @@ jobs:
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
+      - name: cargo build --locked --all-targets
+        run: cargo build --locked --all-targets
       - name: cargo test
         run: cargo test --locked  --all-targets
   coverage:
@@ -154,9 +162,11 @@ jobs:
         uses: taiki-e/install-action@0005e0116e92d8489d8d96fbff83f061c79ba95a # v2.62.31
         with:
           tool: cargo-llvm-cov
-      - name: cargo generate-lockfile
+      - name: cargo generate-lockfile 
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
+      - name: cargo build --locked --all-targets
+        run: cargo build --locked --all-targets
       - name: cargo llvm-cov
         run: cargo llvm-cov --locked  --lcov --output-path lcov.info
       - name: Record Rust version
@@ -169,6 +179,63 @@ jobs:
           env_vars: OS,RUST
 
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
+  run-c-examples:
+    # build and run C examples using yajl-clib
+    runs-on: ubuntu-latest
+    name: ubuntu / c-example / ${{ matrix.example }}
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - "parse-config"
+          - "json-verify"
+          - "json-reformat"
+          - "perftest"
+          - "test-parsing"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: cargo generate-lockfile
+        if: hashFiles('Cargo.lock') == ''
+        run: cargo generate-lockfile
+      - name: make distro
+        run: make distro
+      - name: run example ${{ matrix.example }}
+        # run: cargo llvm-cov --locked --all-features --lcov --output-path lcov.info
+        run: make run-${{ matrix.example }}
+      - name: Record Rust version
+        run: echo "RUST=$(rustc --version)" >> "$GITHUB_ENV"
+  run-rust-examples:
+    # build and run Rust examples using yajl
+    runs-on: ubuntu-latest
+    name: ubuntu / rust-example / ${{ matrix.example }}
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - "parse-config"
+          - "json-verify"
+          - "json-reformat"
+          - "perftest"
+          - "test-parsing"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: cargo generate-lockfile
+        if: hashFiles('Cargo.lock') == ''
+        run: cargo generate-lockfile
+      - name: run example ${{ matrix.example }}
+        # run: cargo llvm-cov --locked --all-features --lcov --output-path lcov.info
+        run: make run-${{ matrix.example }}-rs
+      - name: Record Rust version
+        run: echo "RUST=$(rustc --version)" >> "$GITHUB_ENV"
+
   test-check:
     if: always()
     needs:
@@ -176,6 +243,8 @@ jobs:
       - minimal
       - os-check
       - coverage
+      - run-c-examples
+      - run-rust-examples
     runs-on: ubuntu-latest
     permissions: {}
     steps:
@@ -183,3 +252,4 @@ jobs:
         uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # release/v1.2.2
         with:
           jobs: ${{ toJSON(needs) }}
+

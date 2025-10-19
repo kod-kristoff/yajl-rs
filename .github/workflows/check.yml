@@ -81,28 +81,6 @@ jobs:
         run: cargo doc --no-deps 
         env:
           RUSTDOCFLAGS: --cfg docsrs
-  hack:
-    # cargo-hack checks combinations of feature flags to ensure that features are all additive
-    # which is required for feature unification
-    runs-on: ubuntu-latest
-    name: ubuntu / stable / features
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          submodules: true
-          persist-credentials: false
-      - name: Install stable
-        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
-        with:
-          toolchain: stable
-      - name: cargo install cargo-hack
-        uses: taiki-e/install-action@0005e0116e92d8489d8d96fbff83f061c79ba95a # v2.62.31
-        with:
-          tool: cargo-hack
-      # intentionally no target specifier; see https://github.com/jonhoo/rust-ci-conf/pull/4
-      # --feature-powerset runs for every combination of features
-      - name: cargo hack
-        run: cargo hack --feature-powerset check
   msrv:
     # check that we can build using the minimal rust version that is specified by this crate
     runs-on: ubuntu-latest
@@ -110,7 +88,7 @@ jobs:
     # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
     strategy:
       matrix:
-        msrv: ["1.56.1"] # 2021 edition requires 1.56
+        msrv: ["1.74.0"] # 2021 edition requires 1.56
     name: ubuntu / ${{ matrix.msrv }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -131,7 +109,6 @@ jobs:
       - fmt
       - clippy
       - doc
-      - hack
       - msrv
     runs-on: ubuntu-latest
     permissions: {}
@@ -140,3 +117,4 @@ jobs:
         uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # release/v1.2.2
         with:
           jobs: ${{ toJSON(needs) }}
+

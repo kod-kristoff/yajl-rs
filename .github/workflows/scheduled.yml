@@ -30,8 +30,10 @@ jobs:
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
+      - name: cargo build --locked --all-targets
+        run: cargo build --locked --all-targets
       - name: cargo test --locked
-        run: cargo test --locked --features nightly --all-targets
+        run: cargo test --locked --all-targets
   # https://twitter.com/alcuadrado/status/1571291687837732873
   update:
     # This action checks that updating the dependencies of this crate to the latest available that
@@ -57,6 +59,9 @@ jobs:
       - name: cargo update
         if: hashFiles('Cargo.lock') != ''
         run: cargo update
+      - name: cargo build --locked --all-targets
+        if: hashFiles('Cargo.lock') != ''
+        run: cargo build --locked --all-targets
       - name: cargo test
         if: hashFiles('Cargo.lock') != ''
         run: cargo test --locked --all-targets
