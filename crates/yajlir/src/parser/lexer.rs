@@ -283,6 +283,7 @@ impl Lexer {
                 _invalid_char => {
                     self.error = Some(LexError::InvalidChar);
                     tok = Token::Error;
+                    break;
                     // todo!(" handle c={}", ch)},
                     // TODO: return error here
                 }
@@ -645,6 +646,8 @@ mod tests {
     #[case("- ".as_bytes())]
     #[case("// comment".as_bytes())]
     #[case("/* comment */".as_bytes())]
+    #[case("x".as_bytes())]
+    #[case("x ".as_bytes())]
     fn lex(#[case] text: &[u8]) {
         let mut lexer = Lexer::default();
         let mut offset = 0;
