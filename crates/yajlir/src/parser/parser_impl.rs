@@ -59,6 +59,10 @@ impl Parser {
                             dbg!("callback string");
                             valid_token = true;
                         }
+                        Ok(Token::Bool) => {
+                            dbg!("callback boolean");
+                            valid_token = true;
+                        }
                         Ok(Token::LeftCurlyBracket) => {
                             dbg!("callback start_map");
                             state_to_push = ParseState::MapStart;
@@ -67,6 +71,11 @@ impl Parser {
                         Ok(Token::LeftSquareBracket) => {
                             dbg!("callback start_array");
                             state_to_push = ParseState::ArrayStart;
+                            valid_token = true;
+                        }
+                        Ok(Token::Integer) => {
+                            dbg!("callback number");
+                            dbg!("or callback integer");
                             valid_token = true;
                         }
                         t => todo!("handle tok={:?}", t),
@@ -121,6 +130,10 @@ impl Parser {
                     let tok = self.lexer.lex(text, &mut offset);
                     dbg!(&tok);
                     match tok {
+                        Ok(Token::RightCurlyBracket) => {
+                            dbg!("callback end_map");
+                            self.state_stack.pop();
+                        }
                         Ok(Token::Comma) => {
                             self.set_stack_top(ParseState::MapNeedKey);
                         }
@@ -135,6 +148,7 @@ impl Parser {
                     dbg!(&tok);
                     match tok {
                         Ok(Token::Comma) => self.set_stack_top(ParseState::ArrayNeedVal),
+                        Ok(Token::Eof) => return Ok(()),
                         Ok(Token::RightSquareBracket) => {
                             dbg!("callback end_array");
                             self.state_stack.pop();
