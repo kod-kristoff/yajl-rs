@@ -639,12 +639,33 @@ mod tests {
     #[case("-8. ".as_bytes())]
     #[case("-".as_bytes())]
     #[case("- ".as_bytes())]
+    #[case("// comment".as_bytes())]
+    #[case("/* comment */".as_bytes())]
     fn lex(#[case] text: &[u8]) {
         let mut lexer = Lexer::default();
         let mut offset = 0;
         let token = lexer.lex(text, &mut offset);
         insta::assert_debug_snapshot!(
             format!("lex_case_{}", String::from_utf8_lossy(text)),
+            (token, offset, lexer)
+        );
+    }
+
+    #[rstest]
+    #[case("// comment".as_bytes())]
+    #[case("// comment\n".as_bytes())]
+    #[case("/* comment *".as_bytes())]
+    #[case("/* comment".as_bytes())]
+    #[case("/* comment */".as_bytes())]
+    fn lex_w_comments(#[case] text: &[u8]) {
+        let mut lexer = Lexer::new(LexerOptions {
+            allow_comments: true,
+            ..Default::default()
+        });
+        let mut offset = 0;
+        let token = lexer.lex(text, &mut offset);
+        insta::assert_debug_snapshot!(
+            format!("lex_w_comments_case_{}", String::from_utf8_lossy(text)),
             (token, offset, lexer)
         );
     }
