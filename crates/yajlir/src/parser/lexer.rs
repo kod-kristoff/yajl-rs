@@ -211,7 +211,7 @@ impl Lexer {
                     break;
                 }
                 b'f' => {
-                    let mut want = &b"false"[..];
+                    let mut want = &b"alse"[..];
                     loop {
                         if *offset >= text.len() {
                             tok = Token::Eof;
@@ -233,7 +233,7 @@ impl Lexer {
                     break;
                 }
                 b'n' => {
-                    let mut want = &b"null"[..];
+                    let mut want = &b"ull"[..];
                     loop {
                         if *offset >= text.len() {
                             tok = Token::Eof;
@@ -251,7 +251,7 @@ impl Lexer {
                             break;
                         }
                     }
-                    tok = Token::Bool;
+                    tok = Token::Null;
                     break;
                 }
                 b'"' => {
@@ -592,6 +592,29 @@ mod tests {
     #[case(&[34, 100, 0xf0, 0x90])]
     #[case(&[34, 101, 0xf0, 0x90, 0x80])]
     #[case(&[34, 102, 0xf0, 0x90, 0x80, 0x80])]
+    #[case("".as_bytes())]
+    #[case("{".as_bytes())]
+    #[case("}".as_bytes())]
+    #[case("[".as_bytes())]
+    #[case("]".as_bytes())]
+    #[case(":".as_bytes())]
+    #[case(",".as_bytes())]
+    #[case("n".as_bytes())]
+    #[case("nu".as_bytes())]
+    #[case("nul".as_bytes())]
+    #[case("nulf".as_bytes())]
+    #[case("null".as_bytes())]
+    #[case("t".as_bytes())]
+    #[case("tr".as_bytes())]
+    #[case("trf".as_bytes())]
+    #[case("tru".as_bytes())]
+    #[case("true".as_bytes())]
+    #[case("f".as_bytes())]
+    #[case("fp".as_bytes())]
+    #[case("fa".as_bytes())]
+    #[case("fal".as_bytes())]
+    #[case("fals".as_bytes())]
+    #[case("false".as_bytes())]
     fn lex(#[case] text: &[u8]) {
         let mut lexer = Lexer::default();
         let mut offset = 0;
