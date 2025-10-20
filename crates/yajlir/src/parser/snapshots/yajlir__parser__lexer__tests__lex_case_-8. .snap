@@ -1,0 +1,17 @@
+---
+source: crates/yajlir/src/parser/lexer.rs
+expression: "(token, offset, lexer)"
+---
+(
+    Ok(
+        Error,
+    ),
+    3,
+    Lexer {
+        allow_comments: false,
+        validate_utf8: true,
+        error: Some(
+            MissingIntegerAfterDecimal,
+        ),
+    },
+)
