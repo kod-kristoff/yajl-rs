@@ -669,4 +669,39 @@ mod tests {
             (token, offset, lexer)
         );
     }
+
+    #[rstest]
+    // valid strings
+    #[case("\"simple\"".as_bytes())]
+    #[case(r#""nära""#.as_bytes())]
+    #[case(r#""sࠉ""#.as_bytes())]
+    #[case(&[34, 67, 78, 92, 0x72, 34])]
+    // invalid strings
+    #[case(&[34, 67, 10, 34])]
+    #[case(&[34, 92, 117, 48, 48, 43, 43, 34])]
+    #[case(&[34, 92, 20, 40, 42, 43, 44, 34])]
+    #[case(&[34, 250, 20, 40, 42, 43, 44, 34])]
+    // string EOFs
+    #[case(b"\"s")]
+    #[case(&[34, 117, 92, 34])]
+    #[case(&[34, 92, 117, 48, 34])]
+    #[case(&[34, 96, 0xe0, 34])]
+    #[case(&[34, 97, 0xe0, 0xa0, 34])]
+    #[case(&[34, 98, 0xe0, 0xa0, 0x80, 34])]
+    #[case(&[34, 99, 0xf0, 34])]
+    #[case(&[34, 100, 0xf0, 0x90, 34])]
+    #[case(&[34, 101, 0xf0, 0x90, 0x80, 34])]
+    #[case(&[34, 102, 0xf0, 0x90, 0x80, 0x80, 34])]
+    fn lex_without_utf8_validation(#[case] text: &[u8]) {
+        let mut lexer = Lexer::new(LexerOptions {
+            validate_utf8: false,
+            ..Default::default()
+        });
+        let mut offset = 0;
+        let token = lexer.lex(text, &mut offset);
+        insta::assert_debug_snapshot!(
+            format!("lex_w_comments_case_{}", String::from_utf8_lossy(text)),
+            (token, offset, lexer)
+        );
+    }
 }
