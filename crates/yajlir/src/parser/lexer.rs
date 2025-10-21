@@ -159,7 +159,6 @@ impl Lexer {
                 break;
             }
             let c = self.read_char(text, offset);
-            dbg!(&c);
             match c {
                 b'{' => {
                     tok = Token::LeftCurlyBracket;
@@ -289,7 +288,6 @@ impl Lexer {
                 }
             }
         }
-        dbg!(&tok);
         // todo!()
         Ok(tok)
     }
@@ -385,11 +383,11 @@ impl Lexer {
                 *offset += dbg!(string_scan(&text[*offset..], self.validate_utf8));
             }
 
-            if dbg!(*offset) >= text.len() {
+            if *offset >= text.len() {
                 tok = Token::Eof;
                 break;
             }
-            let mut curr_char = dbg!(self.read_char(text, offset));
+            let mut curr_char = self.read_char(text, offset);
 
             if curr_char == b'"' {
                 tok = Token::String;
@@ -400,8 +398,7 @@ impl Lexer {
                     tok = Token::Eof;
                     break;
                 }
-                dbg!(&has_escapes);
-                curr_char = dbg!(self.read_char(text, offset));
+                curr_char = self.read_char(text, offset);
                 if curr_char == b'u' {
                     let mut i = 0;
                     while i < 4 {
@@ -409,8 +406,8 @@ impl Lexer {
                             tok = Token::Eof;
                             break 'string;
                         }
-                        curr_char = dbg!(self.read_char(text, offset));
-                        if dbg!(charLookupTable[curr_char as usize]) & VHC == 0 {
+                        curr_char = self.read_char(text, offset);
+                        if charLookupTable[curr_char as usize] & VHC == 0 {
                             self.unread_char(offset);
                             self.set_error(LexError::StringInvalidHexChar);
                             tok = Token::Error;
@@ -445,7 +442,7 @@ impl Lexer {
         if has_escapes && tok == Token::String {
             tok = Token::StringWithEscapes;
         }
-        dbg!(tok)
+        tok
     }
     fn utf8_char(&mut self, text: &[u8], offset: &mut usize, mut curr_char: u8) -> Token {
         if curr_char <= 0x7f {

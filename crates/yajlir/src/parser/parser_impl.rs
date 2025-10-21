@@ -55,6 +55,7 @@ impl Parser {
                     let tok = self.lexer.lex(text, &mut offset);
                     let mut valid_token = false;
                     match tok {
+                        Ok(Token::Eof) => return Ok(()),
                         Ok(Token::String) => {
                             dbg!("callback string");
                             valid_token = true;

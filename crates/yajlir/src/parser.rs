@@ -11,6 +11,7 @@ pub struct ParserOptions {
     pub dont_validate_strings: bool,
     pub allow_multiple_values: bool,
     pub allow_partial_values: bool,
+    pub allow_trailing_garbage: bool,
 }
 
 impl ParserOptions {
@@ -23,7 +24,14 @@ impl ParserOptions {
     pub fn allow_multiple_values(&mut self, yes: bool) {
         self.allow_multiple_values = yes;
     }
+    pub fn allow_partial_values(&mut self, yes: bool) {
+        self.allow_partial_values = yes;
+    }
+    pub fn allow_trailing_garbage(&mut self, yes: bool) {
+        self.allow_trailing_garbage = yes;
+    }
 }
+
 #[derive(Clone, Debug)]
 pub struct Parser {
     lexer: Lexer,

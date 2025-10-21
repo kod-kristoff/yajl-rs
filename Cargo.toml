@@ -9,7 +9,7 @@ members = [
     "examples/parse-config",
     "examples/json-verify",
     "examples/json-verify2",
-    "examples/json-reformat", "crates/yajlir",
+    "examples/json-reformat", "crates/yajlir", "examples/yajl_testir",
 ]
 
 [workspace.package]

@@ -631,6 +631,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "yajl_testir"
+version = "0.1.0"
+dependencies = [
+ "yajlir",
+]
+
+[[package]]
 name = "yajlir"
 version = "0.1.0"
 dependencies = [
