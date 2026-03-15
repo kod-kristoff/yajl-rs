@@ -43,8 +43,8 @@ fn main() {
             }
         }
     }
-
-    let mut parser = Parser::new(options);
+    let mut ctx = ();
+    let mut parser = Parser::new(None, &mut ctx, options);
 
     let mut stdin = io::stdin();
     loop {

@@ -1,6 +1,6 @@
-use std::{env, fs::File, io};
+use std::{any::Any, env, fs::File, io};
 
-use yajlir::{ParseError, Parser, ParserOptions};
+use yajlir::{CallbackStatus, ParseError, Parser, ParserCallbacks, ParserOptions};
 
 fn main() -> Result<(), ParseError> {
     let args: Vec<String> = env::args().collect();
@@ -39,7 +39,17 @@ fn main() -> Result<(), ParseError> {
         }
         i += 1;
     }
-    let mut parser = Parser::new(options);
+    let callbacks = ParserCallbacks {
+        null: Some(test_null),
+        boolean: Some(test_bool),
+        start_map: Some(test_start_map),
+        end_map: Some(test_end_map),
+        start_array: Some(test_start_array),
+        end_array: Some(test_end_array),
+        ..Default::default()
+    };
+    let mut ctx = ();
+    let mut parser = Parser::new(Some(&callbacks), &mut ctx, options);
 
     let mut file_data = vec![0; buf_size];
     let mut file: Box<dyn io::BufRead> = if let Some(file_path) = file_name {
@@ -50,6 +60,7 @@ fn main() -> Result<(), ParseError> {
         Box::new(io::stdin().lock())
     };
     let mut rd;
+    let mut res;
     loop {
         rd = match file.read(&mut file_data) {
             Ok(rd) => rd,
@@ -65,10 +76,16 @@ fn main() -> Result<(), ParseError> {
         if rd == 0 {
             break;
         } else {
-            parser.parse(&file_data[..rd])?;
+            res = parser.parse(&file_data[..rd]);
+            if res.is_err() {
+                break;
+            }
         }
     }
-    parser.complete_parse()?;
+    res = parser.complete_parse();
+    if let Err(error) = res {
+        eprintln!("{}", error);
+    }
     println!("memory leaks: 0");
     Ok(())
 }
@@ -78,4 +95,34 @@ fn usage(progname: &str) -> ! {
         progname);
 
     std::process::exit(1)
+}
+
+fn test_null(_ctx: &mut dyn Any) -> CallbackStatus {
+    println!("null");
+    CallbackStatus::Continue
+}
+
+fn test_bool(_ctx: &mut dyn Any, val: bool) -> CallbackStatus {
+    println!("bool: {}", if val { "true" } else { "false" });
+    CallbackStatus::Continue
+}
+
+fn test_start_map(_ctx: &mut dyn Any) -> CallbackStatus {
+    println!("map open '{{'");
+    CallbackStatus::Continue
+}
+
+fn test_end_map(_ctx: &mut dyn Any) -> CallbackStatus {
+    println!("map close '}}'");
+    CallbackStatus::Continue
+}
+
+fn test_start_array(_ctx: &mut dyn Any) -> CallbackStatus {
+    println!("array open '['");
+    CallbackStatus::Continue
+}
+
+fn test_end_array(_ctx: &mut dyn Any) -> CallbackStatus {
+    println!("array close ']'");
+    CallbackStatus::Continue
 }

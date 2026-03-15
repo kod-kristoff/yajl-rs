@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{fmt, ops::Range};
 
 // #[derive(Clone, Debug)]
 // pub struct Token<'t> {
@@ -380,7 +380,7 @@ impl Lexer {
             /* now jump into a faster scanning routine to skip as much
              * of the buffers as possible */
             if *offset < text.len() {
-                *offset += dbg!(string_scan(&text[*offset..], self.validate_utf8));
+                *offset += string_scan(&text[*offset..], self.validate_utf8);
             }
 
             if *offset >= text.len() {
@@ -561,6 +561,14 @@ pub enum LexError {
     MissingIntegerAfterExponent = 8,
     MissingIntegerAfterMinus = 9,
     UnallowedComment = 10,
+}
+
+impl fmt::Display for LexError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            _ => f.write_str("unknown"),
+        }
+    }
 }
 
 #[cfg(test)]

@@ -1,3 +1,3 @@
-pub use crate::parser::{ParseError, Parser, ParserOptions};
+pub use crate::parser::{CallbackStatus, ParseError, Parser, ParserCallbacks, ParserOptions};
 
 mod parser;
