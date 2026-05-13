@@ -1,0 +1,9 @@
+[package]
+name = "yajlir2"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+libc.workspace = true
+strtod = { git = "https://github.com/kod-kristoff/strtod" }
