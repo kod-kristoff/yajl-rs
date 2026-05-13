@@ -1,0 +1,8 @@
+[package]
+name = "yajl_testir"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+yajlir.workspace = true

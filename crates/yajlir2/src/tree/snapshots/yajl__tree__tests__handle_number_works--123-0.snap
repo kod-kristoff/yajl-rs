@@ -1,0 +1,11 @@
+---
+source: crates/yajl/src/tree/tests.rs
+expression: ctx
+snapshot_kind: text
+---
+Context {
+    stack: "NULL",
+    root: Value::Number(Integer(-123)),
+    errbuf: "NULL",
+    errbuf_size: 0,
+}

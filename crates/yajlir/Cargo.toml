@@ -1,0 +1,11 @@
+[package]
+name = "yajlir"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+insta = "1.43.2"
+rstest = "0.26.1"

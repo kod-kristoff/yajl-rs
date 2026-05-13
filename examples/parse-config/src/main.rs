@@ -23,11 +23,11 @@ unsafe fn main_0() -> libc::c_int {
     }
     let Some(node) = yajl_tree_parse(
         file_data.as_mut_ptr() as *const libc::c_char,
-        errbuf.as_mut_ptr(),
+        errbuf.as_mut_ptr().cast(),
         ::core::mem::size_of::<[libc::c_char; 1024]>(),
     ) else {
         eprint!("parse_error: ");
-        if libc::strlen(errbuf.as_mut_ptr()) != 0 {
+        if libc::strlen(errbuf.as_mut_ptr().cast()) != 0 {
             eprintln!(
                 "{}",
                 String::from_utf8_lossy(unsafe { &*(&errbuf[..] as *const _ as *const [u8]) })

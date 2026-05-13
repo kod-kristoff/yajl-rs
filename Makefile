@@ -29,6 +29,7 @@ CFLAGS = -I$(YAJL_INCLUDE)
 YAJL_TEST = build/test/parsing/yajl_test
 YAJL_TEST_API = build/tests/api/gen-extra-close
 YAJL_TEST_RS = target/debug/yajl_test
+YAJL_TESTIR = target/debug/yajl_testir
 INCLUDES = build/$(YAJL_DIST_NAME)/include/yajl/yajl_common.h\
 	build/$(YAJL_DIST_NAME)/include/yajl/yajl_gen.h\
 	build/$(YAJL_DIST_NAME)/include/yajl/yajl_parse.h\
@@ -80,6 +81,9 @@ $(YAJL_TEST_API): tests/api/gen-extra-close.c $(SOLIB) build/tests/api
 $(YAJL_TEST_RS): examples/yajl_test/src/main.rs examples/yajl_test/Cargo.toml $(RLIB)
 	cargo build --package yajl_test
 
+$(YAJL_TESTIR): examples/yajl_testir/src/main.rs examples/yajl_testir/Cargo.toml
+	cargo build --package yajl_testir
+
 run-parse-config: bin/parse_config
 	LD_LIBRARY_PATH=target/debug bin/parse_config < assets/sample.config
 
@@ -91,6 +95,12 @@ run-json-verify: bin/json_verify
 
 run-json-verify-rs:
 	cargo run --package json-verify -- -c < assets/sample.config
+
+run-json-verify2-rs:
+	cargo run --package json-verify2 -- -c < assets/sample.config
+
+run-json-verify3-rs:
+	cargo run --package json-verify3 -- -c < assets/sample.config
 
 run-json-reformat: bin/json_reformat
 	LD_LIBRARY_PATH=target/debug bin/json_reformat < assets/sample.config
@@ -106,6 +116,10 @@ test-parsing: $(YAJL_TEST)
 run-test-parsing-rs: test-parsing-rs
 test-parsing-rs: $(YAJL_TEST_RS) $(RLIB)
 	cd tests/parsing && ./run_tests.sh "../../$(YAJL_TEST_RS)"
+
+run-test-parsing-rs2: test-parsing-rs2
+test-parsing-rs2: $(YAJL_TESTIR)
+	cd tests/parsing && ./run_tests.sh "../../$(YAJL_TESTIR)"
 
 test-api: $(YAJL_TEST_API)
 	cd build/tests/api && LD_LIBRARY_PATH=../../../target/debug ../../../tests/api/run_tests.sh

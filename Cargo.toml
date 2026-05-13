@@ -8,7 +8,8 @@ members = [
     "examples/perftest",
     "examples/parse-config",
     "examples/json-verify",
-    "examples/json-reformat",
+    "examples/json-verify2",
+    "examples/json-reformat", "crates/yajlir", "examples/yajl_testir", "crates/yajlir2", "examples/json-verify3",
 ]
 
 [workspace.package]
@@ -18,6 +19,8 @@ rust-version = "1.74.0"
 
 [workspace.dependencies]
 yajl = { path = "crates/yajl" }
+yajlir = { path = "crates/yajlir" }
+yajlir2 = { path = "crates/yajlir2" }
 yajl-clib = { path = "crates/yajl-clib" }
 
 # external crates
