@@ -1,0 +1,15 @@
+---
+source: crates/yajl/src/tree/tests.rs
+expression: ctx
+snapshot_kind: text
+---
+Context {
+    stack: StackElem {
+        key: "NULL",
+        value: Value::Object({"key": Value::True}),
+        next: "NULL",
+    },
+    root: "NULL",
+    errbuf: "NULL",
+    errbuf_size: 0,
+}

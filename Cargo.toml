@@ -2,12 +2,14 @@
 resolver = "2"
 members = [
     "crates/yajl",
+    "crates/yajlir",
     "crates/yajl-clib",
     "crates/yajl-ffi-test-suite",
     "examples/yajl_test",
     "examples/perftest",
     "examples/parse-config",
     "examples/json-verify",
+    "examples/json-verifyir",
     "examples/json-reformat",
 ]
 
@@ -18,6 +20,7 @@ rust-version = "1.74.0"
 
 [workspace.dependencies]
 yajl = { path = "crates/yajl" }
+yajlir = { path = "crates/yajlir" }
 yajl-clib = { path = "crates/yajl-clib" }
 
 # external crates

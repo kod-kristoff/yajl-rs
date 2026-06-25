@@ -1,0 +1,6 @@
+---
+source: crates/yajl/tests/api/tree_api.rs
+expression: msg
+snapshot_kind: text
+---
+""
