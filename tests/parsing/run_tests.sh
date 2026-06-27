@@ -1,6 +1,13 @@
 #!/bin/sh
 
-ECHO=`which echo`
+OS=`uname -o`
+if [ "$OS" = "Android" ]; then
+    echo "Android"
+    ECHO="echo"
+else
+    ECHO=`which echo`
+
+fi
 
 DIFF_FLAGS="-u"
 case "$(uname)" in
