@@ -4,9 +4,9 @@ use ::libc;
 use yajl::tree::{yajl_tree_get, yajl_tree_parse, Value, ValueType};
 
 unsafe fn main_0() -> libc::c_int {
-    let mut file_data: [u8; 65536] = [0; 65536];
+    let mut file_data: [libc::c_char; 65536] = [0; 65536];
 
-    let mut errbuf: [i8; 1024] = [0; 1024];
+    let mut errbuf: [libc::c_char; 1024] = [0; 1024];
 
     let mut stdin = io::stdin();
     let rd = match stdin.read(&mut file_data) {
@@ -30,7 +30,9 @@ unsafe fn main_0() -> libc::c_int {
         if libc::strlen(errbuf.as_mut_ptr()) != 0 {
             eprintln!(
                 "{}",
-                String::from_utf8_lossy(unsafe { &*(&errbuf[..] as *const _ as *const [u8]) })
+                String::from_utf8_lossy(unsafe {
+                    &*(&errbuf[..] as *const _ as *const [libc::c_char])
+                })
             );
         } else {
             eprintln!("unknown error");

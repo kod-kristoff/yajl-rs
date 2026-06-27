@@ -250,7 +250,10 @@ unsafe fn main_0(args: Vec<String>) -> libc::c_int {
     if stat != Status::Ok {
         let str: *mut libc::c_uchar = parser.get_error(false, file_data.as_mut_ptr(), rd);
 
-        eprint!("{}", CStr::from_ptr(str as *const i8).to_str().unwrap());
+        eprint!(
+            "{}",
+            CStr::from_ptr(str as *const libc::c_char).to_str().unwrap()
+        );
         parser.free_error(str);
     }
     Parser::free(hand);
