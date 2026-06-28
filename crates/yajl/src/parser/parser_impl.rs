@@ -317,7 +317,7 @@ impl Parser {
         let mut tok: Token = Token::Bool;
         let mut buf: *const libc::c_uchar = ptr::null::<libc::c_uchar>();
         let mut bufLen: usize = 0;
-        let mut offset: *mut usize = &mut self.bytesConsumed;
+        let offset = &mut self.bytesConsumed;
         *offset = 0;
         loop {
             match self.stateStack.top() {

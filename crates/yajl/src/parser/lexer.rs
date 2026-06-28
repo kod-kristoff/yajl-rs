@@ -344,7 +344,7 @@ impl Lexer {
         &mut self,
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
-        mut offset: *mut usize,
+        offset: &mut usize,
     ) -> libc::c_uchar {
         (if self.buf_in_use && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len() {
             let fresh0 = self.bufOff;
@@ -356,7 +356,7 @@ impl Lexer {
             *jsonText.add(fresh1) as libc::c_int
         }) as libc::c_uchar
     }
-    unsafe fn unread_char(&mut self, mut offset: *mut usize) {
+    unsafe fn unread_char(&mut self, offset: &mut usize) {
         if *offset > 0 {
             *offset = (*offset).wrapping_sub(1);
         } else {
@@ -367,7 +367,7 @@ impl Lexer {
         &mut self,
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
-        mut offset: *mut usize,
+        offset: &mut usize,
         mut curChar: libc::c_uchar,
     ) -> Token {
         if curChar as libc::c_int <= 0x7f as libc::c_int {
@@ -443,7 +443,7 @@ impl Lexer {
         &mut self,
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
-        mut offset: *mut usize,
+        offset: &mut usize,
     ) -> Token {
         let mut tok: Token = Token::Error;
         let mut hasEscapes: libc::c_int = 0 as libc::c_int;
@@ -547,7 +547,7 @@ impl Lexer {
         &mut self,
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
-        mut offset: *mut usize,
+        offset: &mut usize,
     ) -> Token {
         let mut c: libc::c_uchar = 0;
         let mut tok: Token = Token::Integer;
@@ -636,7 +636,7 @@ impl Lexer {
         &mut self,
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
-        mut offset: *mut usize,
+        offset: &mut usize,
     ) -> Token {
         let mut c: libc::c_uchar = 0;
         let mut tok: Token = Token::Comment;
@@ -683,7 +683,7 @@ impl Lexer {
         &mut self,
         mut jsonText: *const libc::c_uchar,
         mut jsonTextLen: usize,
-        mut offset: *mut usize,
+        offset: &mut usize,
         mut outBuf: *mut *const libc::c_uchar,
         mut outLen: *mut usize,
     ) -> Token {
