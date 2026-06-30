@@ -43,20 +43,16 @@ unsafe extern "C" fn run(validate_utf8: bool) -> libc::c_int {
             let parser = unsafe { &mut *hand };
             parser.config(ParserOption::DontValidateStrings, !validate_utf8);
             let mut d = get_doc(times % num_docs());
-            while !(*d).is_null() {
-                stat = parser.parse(*d as *mut libc::c_uchar, libc::strlen(*d));
-                if stat as libc::c_uint != Status::Ok as libc::c_int as libc::c_uint {
+            while !d.is_empty() {
+                stat = parser.parse(d[0]);
+                if stat != Status::Ok {
                     break;
                 }
-                d = d.offset(1);
+                d = &d[1..];
             }
             stat = parser.complete_parse();
             if stat != Status::Ok {
-                let str: *mut libc::c_uchar = parser.get_error(
-                    true,
-                    *d as *mut libc::c_uchar,
-                    if !(*d).is_null() { libc::strlen(*d) } else { 0 },
-                );
+                let str: *mut libc::c_uchar = parser.get_error(true, d[0]);
                 libc::write(
                     STDERR_FILENO,
                     // b"%s\0" as *const u8 as *const libc::c_char as *const libc::c_void,

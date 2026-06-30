@@ -292,13 +292,9 @@ impl Parser {
         }
         true
     }
-    pub unsafe fn parse(
-        &mut self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-    ) -> Status {
+    pub unsafe fn parse(&mut self, json_text: &[u8]) -> Status {
         self.ensure_lexer();
-        self.do_parse(jsonText, jsonTextLen)
+        self.do_parse(json_text)
     }
     fn ensure_lexer(&mut self) {
         if self.lexer.is_null() {
@@ -317,13 +313,8 @@ impl Parser {
         unsafe { self.do_finish() }
     }
 
-    pub unsafe fn get_error(
-        &mut self,
-        mut verbose: bool,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-    ) -> *mut libc::c_uchar {
-        self.render_error_string(jsonText, jsonTextLen, verbose)
+    pub unsafe fn get_error(&mut self, mut verbose: bool, json_text: &[u8]) -> *mut libc::c_uchar {
+        self.render_error_string(json_text, verbose)
     }
 
     pub fn get_bytes_consumed(&self) -> usize {

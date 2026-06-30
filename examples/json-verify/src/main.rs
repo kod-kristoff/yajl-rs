@@ -69,7 +69,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
             break;
         } else {
             filedata[rd] = 0 as libc::c_int as libc::c_uchar;
-            stat = parser.parse(filedata.as_mut_ptr(), rd);
+            stat = parser.parse(&filedata[..rd]);
             if stat != Status::Ok {
                 break;
             }
@@ -78,7 +78,7 @@ unsafe fn main_0(_argc: libc::c_int, _argv: *mut *mut libc::c_char) -> libc::c_i
     stat = parser.complete_parse();
     if stat != Status::Ok {
         if quiet == 0 {
-            let str: *mut libc::c_uchar = parser.get_error(true, filedata.as_mut_ptr(), rd);
+            let str: *mut libc::c_uchar = parser.get_error(true, &filedata[..rd]);
 
             libc::write(
                 libc::STDERR_FILENO,

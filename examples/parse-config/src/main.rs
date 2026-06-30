@@ -22,7 +22,7 @@ unsafe fn main_0() -> libc::c_int {
         return 1 as libc::c_int;
     }
     let Some(node) = yajl_tree_parse(
-        file_data.as_mut_ptr() as *const libc::c_char,
+        &file_data[..rd],
         errbuf.as_mut_ptr(),
         ::core::mem::size_of::<[libc::c_char; 1024]>(),
     ) else {

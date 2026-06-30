@@ -167,8 +167,8 @@ pub unsafe fn parse_integer(
 impl Parser {
     pub unsafe fn render_error_string(
         &self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
+        json_text: &[u8],
+
         mut verbose: bool,
     ) -> *mut libc::c_uchar {
         let mut offset: usize = self.bytesConsumed;
@@ -240,8 +240,8 @@ impl Parser {
             } else {
                 0 as libc::c_int as usize
             };
-            end = if offset.wrapping_add(30 as libc::c_int as usize) > jsonTextLen {
-                jsonTextLen
+            end = if offset.wrapping_add(30 as libc::c_int as usize) > json_text.len() {
+                json_text.len()
             } else {
                 offset.wrapping_add(30 as libc::c_int as usize)
             };
@@ -251,12 +251,10 @@ impl Parser {
                 i = i.wrapping_add(1);
             }
             while start < end {
-                if *jsonText.add(start) as libc::c_int != '\n' as i32
-                    && *jsonText.add(start) as libc::c_int != '\r' as i32
-                {
-                    text[i] = *jsonText.add(start) as libc::c_char;
+                if json_text[start] != b'\n' && json_text[start] != b'\r' {
+                    text[i] = json_text[start];
                 } else {
-                    text[i] = ' ' as i32 as libc::c_char;
+                    text[i] = b' ';
                 }
                 start = start.wrapping_add(1);
                 i = i.wrapping_add(1);
@@ -290,7 +288,7 @@ impl Parser {
 }
 impl Parser {
     pub unsafe fn do_finish(&mut self) -> Status {
-        let stat = self.do_parse(b" \0" as *const u8, 1);
+        let stat = self.do_parse(b" ");
         if stat != Status::Ok {
             return stat;
         }
@@ -308,11 +306,7 @@ impl Parser {
         }
     }
 
-    pub unsafe fn do_parse(
-        &mut self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-    ) -> Status {
+    pub unsafe fn do_parse(&mut self, json_text: &[u8]) -> Status {
         let mut current_block: u64;
         let mut tok: Token = Token::Bool;
         let mut buf: *const libc::c_uchar = ptr::null::<libc::c_uchar>();
@@ -328,11 +322,10 @@ impl Parser {
                         if self.flags & ParserOption::AllowTrailingGarbage as libc::c_uint != 0 {
                             break;
                         }
-                        if *offset == jsonTextLen {
+                        if *offset == json_text.len() {
                             break;
                         }
-                        tok =
-                            (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                        tok = (*self.lexer).lex(json_text, offset, &mut buf, &mut bufLen);
                         if tok != Token::Eof {
                             *self.stateStack.top_mut() = ParseState::ParseError;
                             self.parseError = Some(ParseError::TrailingGarbage);
@@ -346,7 +339,7 @@ impl Parser {
                 | ParseState::ArrayNeedVal
                 | ParseState::ArrayStart => {
                     let mut stateToPush = ParseState::Start;
-                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                    tok = (*self.lexer).lex(json_text, offset, &mut buf, &mut bufLen);
                     match tok {
                         Token::Eof => return Status::Ok,
                         Token::Error => {
@@ -589,7 +582,7 @@ impl Parser {
                     }
                 }
                 ParseState::MapStart | ParseState::MapNeedKey => {
-                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                    tok = (*self.lexer).lex(json_text, offset, &mut buf, &mut bufLen);
                     match tok {
                         Token::Eof => return Status::Ok,
                         Token::Error => {
@@ -655,7 +648,7 @@ impl Parser {
                     }
                 }
                 ParseState::MapSep => {
-                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                    tok = (*self.lexer).lex(json_text, offset, &mut buf, &mut bufLen);
                     match tok {
                         Token::Colon => {
                             *self.stateStack.top_mut() = ParseState::MapNeedVal;
@@ -671,7 +664,7 @@ impl Parser {
                     }
                 }
                 ParseState::MapGotVal => {
-                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                    tok = (*self.lexer).lex(json_text, offset, &mut buf, &mut bufLen);
                     match tok {
                         Token::RightBracket => {
                             if !(self.callbacks).is_null()
@@ -706,7 +699,7 @@ impl Parser {
                     }
                 }
                 ParseState::ArrayGotVal => {
-                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                    tok = (*self.lexer).lex(json_text, offset, &mut buf, &mut bufLen);
                     match tok {
                         Token::RightBrace => {
                             if !(self.callbacks).is_null()

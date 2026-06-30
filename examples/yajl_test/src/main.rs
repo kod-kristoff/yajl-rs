@@ -240,7 +240,7 @@ unsafe fn main_0(args: Vec<String>) -> libc::c_int {
         if rd == 0 as libc::c_int as usize {
             break;
         } else {
-            stat = parser.parse(file_data.as_mut_ptr(), rd);
+            stat = parser.parse(&file_data[..rd]);
             if stat != Status::Ok {
                 break;
             }
@@ -248,7 +248,7 @@ unsafe fn main_0(args: Vec<String>) -> libc::c_int {
     }
     stat = parser.complete_parse();
     if stat != Status::Ok {
-        let str: *mut libc::c_uchar = parser.get_error(false, file_data.as_mut_ptr(), rd);
+        let str: *mut libc::c_uchar = parser.get_error(false, &file_data[..rd]);
 
         eprint!(
             "{}",

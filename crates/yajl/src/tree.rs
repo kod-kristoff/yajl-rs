@@ -505,13 +505,10 @@ unsafe extern "C" fn handle_null(mut ctx: *mut c_void) -> c_int {
 }
 
 pub unsafe fn yajl_tree_parse(
-    mut input: *const c_char,
+    input: &[u8],
     mut error_buffer: *mut c_char,
     mut error_buffer_size: usize,
 ) -> Option<*mut Value> {
-    if input.is_null() {
-        return None;
-    }
     static mut callbacks: yajl_callbacks = unsafe {
         {
             yajl_callbacks {
@@ -555,12 +552,11 @@ pub unsafe fn yajl_tree_parse(
     );
     let parser = unsafe { &mut *handle };
     parser.config(ParserOption::AllowComments, true);
-    let mut status = parser.parse(input as *mut c_uchar, libc::strlen(input));
+    let mut status = parser.parse(input);
     status = parser.complete_parse();
     if status != Status::Ok {
         if !error_buffer.is_null() && error_buffer_size > 0 {
-            let internal_err_str =
-                parser.get_error(true, input as *const c_uchar, libc::strlen(input)) as *mut c_char;
+            let internal_err_str = parser.get_error(true, input) as *mut c_char;
             libc::snprintf(
                 error_buffer,
                 error_buffer_size,
