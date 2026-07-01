@@ -28,7 +28,7 @@ pub unsafe extern "C" fn yajl_tree_parse(
         }
         return ptr::null_mut();
     }
-    let input_slice: &[u8] = slice::from_raw_parts(input as *const u8, libc::strlen(input));
+    let input_slice: &[u8] = slice::from_raw_parts(input, libc::strlen(input));
     match yajl::tree::yajl_tree_parse(input_slice, error_buffer, error_buffer_size) {
         Some(value) => value,
         None => ptr::null_mut(),

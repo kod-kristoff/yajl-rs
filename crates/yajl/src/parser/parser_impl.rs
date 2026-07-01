@@ -603,24 +603,20 @@ impl Parser {
                         Token::String => {
                             current_block = 5544887021832600539;
                         }
-                        Token::RightBracket => {
-                            if self.stateStack.top() == ParseState::MapStart {
-                                if !(self.callbacks).is_null()
-                                    && ((*self.callbacks).yajl_end_map).is_some()
-                                    && ((*self.callbacks).yajl_end_map)
-                                        .expect("non-null function pointer")(
-                                        self.ctx
-                                    ) == 0
-                                {
-                                    *self.stateStack.top_mut() = ParseState::ParseError;
-                                    self.parseError = Some(ParseError::ClientCancelled);
-                                    return Status::ClientCanceled;
-                                }
-                                self.stateStack.pop();
-                                continue;
-                            } else {
-                                current_block = 17513148302838498461;
+                        Token::RightBracket if self.stateStack.top() == ParseState::MapStart => {
+                            if !(self.callbacks).is_null()
+                                && ((*self.callbacks).yajl_end_map).is_some()
+                                && ((*self.callbacks).yajl_end_map)
+                                    .expect("non-null function pointer")(
+                                    self.ctx
+                                ) == 0
+                            {
+                                *self.stateStack.top_mut() = ParseState::ParseError;
+                                self.parseError = Some(ParseError::ClientCancelled);
+                                return Status::ClientCanceled;
                             }
+                            self.stateStack.pop();
+                            continue;
                         }
                         _ => {
                             current_block = 17513148302838498461;

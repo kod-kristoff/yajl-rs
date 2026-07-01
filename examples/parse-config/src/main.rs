@@ -4,7 +4,7 @@ use ::libc;
 use yajl::tree::{yajl_tree_get, yajl_tree_parse, Value, ValueType};
 
 unsafe fn main_0() -> libc::c_int {
-    let mut file_data: [libc::c_char; 65536] = [0; 65536];
+    let mut file_data = [0u8; 65536];
 
     let mut errbuf: [libc::c_char; 1024] = [0; 1024];
 
@@ -17,7 +17,7 @@ unsafe fn main_0() -> libc::c_int {
         Ok(rd) => rd,
     };
 
-    if rd >= (::core::mem::size_of::<[libc::c_uchar; 65536]>()).wrapping_sub(1) {
+    if rd >= (file_data.len()).wrapping_sub(1) {
         eprintln!("config file too big");
         return 1 as libc::c_int;
     }
@@ -30,9 +30,7 @@ unsafe fn main_0() -> libc::c_int {
         if libc::strlen(errbuf.as_mut_ptr()) != 0 {
             eprintln!(
                 "{}",
-                String::from_utf8_lossy(unsafe {
-                    &*(&errbuf[..] as *const _ as *const [libc::c_char])
-                })
+                String::from_utf8_lossy(unsafe { &*(&errbuf[..] as *const _) })
             );
         } else {
             eprintln!("unknown error");

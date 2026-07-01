@@ -18,11 +18,11 @@ pub type yajl_status = u32;
 /// # Arguments
 ///
 /// * `callbacks` - a yajl callbacks structure specifying the
-///                    functions to call when different JSON entities
-///                    are encountered in the input text.  May be NULL,
-///                    which is only useful for validation.
+///   functions to call when different JSON entities
+///   are encountered in the input text.  May be NULL,
+///   which is only useful for validation.
 /// * `afs` - memory allocation functions, may be NULL for to use
-///                    C runtime library routines (malloc and friends)
+///   C runtime library routines (malloc and friends)
 /// * `ctx` - a context pointer that will be passed to callbacks.
 ///
 /// # Safety
@@ -118,7 +118,7 @@ pub unsafe extern "C" fn yajl_parse(
     if jsonText.is_null() {
         return Status::Error as yajl_status;
     }
-    let json_text: &[u8] = slice::from_raw_parts(jsonText as *const u8, jsonTextLen);
+    let json_text: &[u8] = slice::from_raw_parts(jsonText, jsonTextLen);
     parser.parse(json_text) as yajl_status
 }
 #[no_mangle]
@@ -143,7 +143,7 @@ pub unsafe extern "C" fn yajl_get_error(
     if jsonText.is_null() {
         return ptr::null_mut();
     }
-    let json_text: &[u8] = slice::from_raw_parts(jsonText as *const u8, jsonTextLen);
+    let json_text: &[u8] = slice::from_raw_parts(jsonText, jsonTextLen);
     parser.get_error(verbose != 0, json_text)
 }
 #[no_mangle]
