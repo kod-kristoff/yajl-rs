@@ -156,11 +156,11 @@ impl Parser {
     /// # Arguments
     ///
     /// * `callbacks` - a yajl callbacks structure specifying the
-    ///                    functions to call when different JSON entities
-    ///                    are encountered in the input text.  May be NULL,
-    ///                    which is only useful for validation.
+    ///   functions to call when different JSON entities
+    ///   are encountered in the input text.  May be NULL,
+    ///   which is only useful for validation.
     /// * `afs` - memory allocation functions, may be NULL for to use
-    ///                    C runtime library routines (malloc and friends)
+    ///   C runtime library routines (malloc and friends)
     /// * `ctx` - a context pointer that will be passed to callbacks.
     ///
     /// # Safety

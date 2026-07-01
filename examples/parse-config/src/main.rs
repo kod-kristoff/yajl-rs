@@ -1,4 +1,7 @@
-use std::io::{self, Read};
+use std::{
+    ffi::c_char,
+    io::{self, Read},
+};
 
 use ::libc;
 use yajl::tree::{yajl_tree_get, yajl_tree_parse, Value, ValueType};
@@ -6,7 +9,7 @@ use yajl::tree::{yajl_tree_get, yajl_tree_parse, Value, ValueType};
 unsafe fn main_0() -> libc::c_int {
     let mut file_data = [0u8; 65536];
 
-    let mut errbuf: [libc::c_char; 1024] = [0; 1024];
+    let mut errbuf: [u8; 1024] = [0; 1024];
 
     let mut stdin = io::stdin();
     let rd = match stdin.read(&mut file_data) {
@@ -23,11 +26,11 @@ unsafe fn main_0() -> libc::c_int {
     }
     let Some(node) = yajl_tree_parse(
         &file_data[..rd],
-        errbuf.as_mut_ptr(),
-        ::core::mem::size_of::<[libc::c_char; 1024]>(),
+        errbuf.as_mut_ptr() as *mut c_char,
+        errbuf.len(),
     ) else {
         eprint!("parse_error: ");
-        if libc::strlen(errbuf.as_mut_ptr()) != 0 {
+        if libc::strlen(errbuf.as_ptr() as *const c_char) != 0 {
             eprintln!(
                 "{}",
                 String::from_utf8_lossy(unsafe { &*(&errbuf[..] as *const _) })

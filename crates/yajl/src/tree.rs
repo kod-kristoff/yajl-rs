@@ -165,8 +165,7 @@ impl Value {
     const NUMBER_DOUBLE_VALID: c_uint = 0x02;
 
     unsafe fn alloc(mut type_0: ValueType) -> Result<*mut Value, ValueError> {
-        let mut v: *mut Value = ptr::null_mut();
-        v = libc::malloc(::core::mem::size_of::<Value>()) as *mut Value;
+        let mut v: *mut Value = libc::malloc(::core::mem::size_of::<Value>()) as *mut Value;
         if v.is_null() {
             return Err(ValueError::OutOfMemory);
         }
@@ -187,7 +186,7 @@ impl Value {
             *fresh0 = ptr::null::<c_char>();
             Value::tree_free(*((*v).u.object.values).add(i));
             let fresh1 = &mut (*((*v).u.object.values).add(i));
-            *fresh1 = 0 as *mut Value;
+            *fresh1 = ptr::null_mut();
             i = i.wrapping_add(1);
         }
         libc::free((*v).u.object.keys as *mut c_void);
@@ -203,7 +202,7 @@ impl Value {
         while i < (*v).u.array.len {
             Value::tree_free(*((*v).u.array.values).add(i));
             let fresh2 = &mut (*((*v).u.array.values).add(i));
-            *fresh2 = 0 as *mut Value;
+            *fresh2 = ptr::null_mut();
             i = i.wrapping_add(1);
         }
         libc::free((*v).u.array.values as *mut c_void);
@@ -363,7 +362,7 @@ impl Value {
             Err(ParseIntegerError::Underflow) => i64::MIN,
             _ => i64::MAX,
         };
-        if let Some(s) = CStr::from_ptr((*v).u.number.r).to_str().ok() {
+        if let Ok(s) = CStr::from_ptr((*v).u.number.r).to_str() {
             if let Some((d, d_len)) = strtod::strtod(s) {
                 (*v).u.number.d = d;
                 if d_len == len {
