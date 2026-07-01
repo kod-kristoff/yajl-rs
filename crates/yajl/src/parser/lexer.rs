@@ -30,8 +30,8 @@ pub struct Lexer {
     pub buf: *mut Buffer,
     pub bufOff: usize,
     buf_in_use: bool,
-    pub allowComments: libc::c_uint,
-    pub validateUTF8: libc::c_uint,
+    allowComments: bool,
+    validateUTF8: bool,
     pub alloc: *mut yajl_alloc_funcs,
 }
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -53,8 +53,8 @@ pub enum LexError {
 impl Lexer {
     pub unsafe fn alloc(
         mut alloc: *mut yajl_alloc_funcs,
-        mut allowComments: libc::c_uint,
-        mut validateUTF8: libc::c_uint,
+        allowComments: bool,
+        validateUTF8: bool,
     ) -> *mut Lexer {
         let mut lxr: *mut Lexer = ((*alloc).malloc).expect("non-null function pointer")(
             (*alloc).ctx,
@@ -81,270 +81,69 @@ impl Lexer {
         );
     }
 }
-static mut charLookupTable: [libc::c_char; 256] = [
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    (0x8 as libc::c_int | 0x1 as libc::c_int | 0x2 as libc::c_int) as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x1 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    (0x8 as libc::c_int | 0x1 as libc::c_int | 0x2 as libc::c_int) as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    (0x1 as libc::c_int | 0x4 as libc::c_int) as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    (0x1 as libc::c_int | 0x4 as libc::c_int) as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x1 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x1 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x1 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
+
+/* a lookup table which lets us quickly determine three things:
+ * VEC - valid escaped control char
+ * note.  the solidus '/' may be escaped or not.
+ * IJC - invalid json char
+ * VHC - valid hex char
+ * NFP - needs further processing (from a string scanning perspective)
+ * NUC - needs utf8 checking when enabled (from a string scanning perspective)
+ */
+const VEC: u8 = 0x01;
+const IJC: u8 = 0x02;
+const VHC: u8 = 0x04;
+const NFP: u8 = 0x08;
+const NUC: u8 = 0x10;
+#[rustfmt::skip]
+const charLookupTable: [u8; 256] = [
+/*00*/ IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    ,
+/*08*/ IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    ,
+/*10*/ IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    ,
+/*18*/ IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    ,
+
+/*20*/ 0      , 0      , NFP|VEC|IJC, 0      , 0      , 0      , 0      , 0      ,
+/*28*/ 0      , 0      , 0      , 0      , 0      , 0      , 0      , VEC    ,
+/*30*/ VHC    , VHC    , VHC    , VHC    , VHC    , VHC    , VHC    , VHC    ,
+/*38*/ VHC    , VHC    , 0      , 0      , 0      , 0      , 0      , 0      ,
+
+/*40*/ 0      , VHC    , VHC    , VHC    , VHC    , VHC    , VHC    , 0      ,
+/*48*/ 0      , 0      , 0      , 0      , 0      , 0      , 0      , 0      ,
+/*50*/ 0      , 0      , 0      , 0      , 0      , 0      , 0      , 0      ,
+/*58*/ 0      , 0      , 0      , 0      , NFP|VEC|IJC, 0      , 0      , 0      ,
+
+/*60*/ 0      , VHC    , VEC|VHC, VHC    , VHC    , VHC    , VEC|VHC, 0      ,
+/*68*/ 0      , 0      , 0      , 0      , 0      , 0      , VEC    , 0      ,
+/*70*/ 0      , 0      , VEC    , 0      , VEC    , 0      , 0      , 0      ,
+/*78*/ 0      , 0      , 0      , 0      , 0      , 0      , 0      , 0      ,
+
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC
 ];
+
 impl Lexer {
     unsafe fn read_char(&mut self, json_text: &[u8], offset: &mut usize) -> u8 {
         if self.buf_in_use && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len() {
             let fresh0 = self.bufOff;
             self.bufOff = (self.bufOff).wrapping_add(1);
-            *((*self.buf).data()).add(fresh0) as u8
+            *((*self.buf).data()).add(fresh0)
         } else {
             let fresh1 = *offset;
             *offset = (*offset).wrapping_add(1);
@@ -358,54 +157,48 @@ impl Lexer {
             self.bufOff = (self.bufOff).wrapping_sub(1);
         };
     }
-    unsafe fn utf8_char(
-        &mut self,
-        json_text: &[u8],
-
-        offset: &mut usize,
-        mut curChar: libc::c_uchar,
-    ) -> Token {
-        if curChar as libc::c_int <= 0x7f as libc::c_int {
+    unsafe fn utf8_char(&mut self, json_text: &[u8], offset: &mut usize, mut curChar: u8) -> Token {
+        if curChar <= 0x7f {
             return Token::String;
-        } else if curChar as libc::c_int >> 5 as libc::c_int == 0x6 as libc::c_int {
+        } else if curChar >> 5 == 0x6 {
             if *offset >= json_text.len() {
                 return Token::Eof;
             }
             curChar = self.read_char(json_text, offset);
-            if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
+            if curChar >> 6 == 0x2 {
                 return Token::String;
             }
-        } else if curChar as libc::c_int >> 4 as libc::c_int == 0xe as libc::c_int {
+        } else if curChar >> 4 == 0xe {
             if *offset >= json_text.len() {
                 return Token::Eof;
             }
             curChar = self.read_char(json_text, offset);
-            if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
+            if curChar >> 6 == 0x2 {
                 if *offset >= json_text.len() {
                     return Token::Eof;
                 }
                 curChar = self.read_char(json_text, offset);
-                if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
+                if curChar >> 6 == 0x2 {
                     return Token::String;
                 }
             }
-        } else if curChar as libc::c_int >> 3 as libc::c_int == 0x1e as libc::c_int {
+        } else if curChar >> 3 == 0x1e {
             if *offset >= json_text.len() {
                 return Token::Eof;
             }
             curChar = self.read_char(json_text, offset);
 
-            if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
+            if curChar >> 6 == 0x2 {
                 if *offset >= json_text.len() {
                     return Token::Eof;
                 }
                 curChar = self.read_char(json_text, offset);
-                if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
+                if curChar >> 6 == 0x2 {
                     if *offset >= json_text.len() {
                         return Token::Eof;
                     }
                     curChar = self.read_char(json_text, offset);
-                    if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
+                    if curChar >> 6 == 0x2 {
                         return Token::String;
                     }
                 }
@@ -414,20 +207,10 @@ impl Lexer {
         Token::Error
     }
 }
-unsafe fn yajl_string_scan(
-    mut buf: *const libc::c_uchar,
-    mut len: usize,
-    mut utf8check: libc::c_int,
-) -> usize {
-    let mut mask: libc::c_uchar = (0x2 as libc::c_int
-        | 0x8 as libc::c_int
-        | (if utf8check != 0 {
-            0x10 as libc::c_int
-        } else {
-            0 as libc::c_int
-        })) as libc::c_uchar;
-    let mut skip: usize = 0 as libc::c_int as usize;
-    while skip < len && charLookupTable[*buf as usize] as libc::c_int & mask as libc::c_int == 0 {
+unsafe fn yajl_string_scan(mut buf: *const libc::c_uchar, len: usize, utf8check: bool) -> usize {
+    let mut mask = IJC | NFP | (if utf8check { NUC } else { 0 });
+    let mut skip: usize = 0;
+    while skip < len && charLookupTable[*buf as usize] & mask == 0 {
         skip = skip.wrapping_add(1);
         buf = buf.offset(1);
     }
@@ -436,7 +219,7 @@ unsafe fn yajl_string_scan(
 impl Lexer {
     unsafe fn string(&mut self, json_text: &[u8], offset: &mut usize) -> Token {
         let mut tok: Token = Token::Error;
-        let mut hasEscapes: libc::c_int = 0 as libc::c_int;
+        let mut hasEscapes = false;
         's_10: loop {
             let mut curChar: libc::c_uchar = 0;
             let mut p: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
@@ -444,48 +227,39 @@ impl Lexer {
             if self.buf_in_use && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len() {
                 p = ((*self.buf).data()).add(self.bufOff);
                 len = ((*self.buf).len()).wrapping_sub(self.bufOff);
-                self.bufOff = (self.bufOff).wrapping_add(yajl_string_scan(
-                    p,
-                    len,
-                    self.validateUTF8 as libc::c_int,
-                )) as usize;
+                self.bufOff =
+                    (self.bufOff).wrapping_add(yajl_string_scan(p, len, self.validateUTF8))
+                        as usize;
             } else if *offset < json_text.len() {
                 p = json_text.as_ptr().add(*offset);
                 len = json_text.len().wrapping_sub(*offset);
-                *offset = (*offset).wrapping_add(yajl_string_scan(
-                    p,
-                    len,
-                    self.validateUTF8 as libc::c_int,
-                )) as usize;
+                *offset =
+                    (*offset).wrapping_add(yajl_string_scan(p, len, self.validateUTF8)) as usize;
             }
             if *offset >= json_text.len() {
                 tok = Token::Eof;
                 break;
             } else {
                 curChar = self.read_char(json_text, offset);
-                if curChar as libc::c_int == '"' as i32 {
+                if curChar == b'"' {
                     tok = Token::String;
                     break;
-                } else if curChar as libc::c_int == '\\' as i32 {
-                    hasEscapes = 1 as libc::c_int;
+                } else if curChar == b'\\' {
+                    hasEscapes = true;
                     if *offset >= json_text.len() {
                         tok = Token::Eof;
                         break;
                     } else {
                         curChar = self.read_char(json_text, offset);
-                        if curChar as libc::c_int == 'u' as i32 {
-                            let mut i: libc::c_uint = 0;
-                            i = 0;
+                        if curChar == b'u' {
+                            let mut i: i32 = 0;
                             while i < 4 {
                                 if *offset >= json_text.len() {
                                     tok = Token::Eof;
                                     break 's_10;
                                 } else {
                                     curChar = self.read_char(json_text, offset);
-                                    if charLookupTable[curChar as usize] as libc::c_int
-                                        & 0x4 as libc::c_int
-                                        == 0
-                                    {
+                                    if charLookupTable[curChar as usize] & VHC == 0 {
                                         self.unread_char(offset);
                                         self.error = LexError::StringInvalidHexChar;
                                         break 's_10;
@@ -495,9 +269,7 @@ impl Lexer {
                                 }
                             }
                         } else {
-                            if charLookupTable[curChar as usize] as libc::c_int & 0x1 as libc::c_int
-                                != 0
-                            {
+                            if charLookupTable[curChar as usize] & VEC != 0 {
                                 continue;
                             }
                             self.unread_char(offset);
@@ -505,13 +277,12 @@ impl Lexer {
                             break;
                         }
                     }
-                } else if charLookupTable[curChar as usize] as libc::c_int & 0x2 as libc::c_int != 0
-                {
+                } else if charLookupTable[curChar as usize] & IJC != 0 {
                     self.unread_char(offset);
                     self.error = LexError::StringInvalidJsonChar;
                     break;
                 } else {
-                    if self.validateUTF8 == 0 {
+                    if !self.validateUTF8 {
                         continue;
                     }
                     let mut t: Token = self.utf8_char(json_text, offset, curChar);
@@ -528,36 +299,35 @@ impl Lexer {
                 }
             }
         }
-        if hasEscapes != 0 && tok == Token::String {
+        if hasEscapes && tok == Token::String {
             tok = Token::StringWithEscapes;
         }
         tok
     }
     unsafe fn number(&mut self, json_text: &[u8], offset: &mut usize) -> Token {
-        let mut c: libc::c_uchar = 0;
         let mut tok: Token = Token::Integer;
         if *offset >= json_text.len() {
             return Token::Eof;
         }
-        c = self.read_char(json_text, offset);
-        if c as libc::c_int == '-' as i32 {
+        let mut c = self.read_char(json_text, offset);
+        if c == b'-' {
             if *offset >= json_text.len() {
                 return Token::Eof;
             }
             c = self.read_char(json_text, offset);
         }
-        if c as libc::c_int == '0' as i32 {
+        if c == b'0' {
             if *offset >= json_text.len() {
                 return Token::Eof;
             }
             c = self.read_char(json_text, offset);
-        } else if c as libc::c_int >= '1' as i32 && c as libc::c_int <= '9' as i32 {
+        } else if (b'1'..=b'9').contains(&c) {
             loop {
                 if *offset >= json_text.len() {
                     return Token::Eof;
                 }
                 c = self.read_char(json_text, offset);
-                if !(c as libc::c_int >= '0' as i32 && c as libc::c_int <= '9' as i32) {
+                if !c.is_ascii_digit() {
                     break;
                 }
             }
@@ -566,13 +336,13 @@ impl Lexer {
             self.error = LexError::MissingIntegerAfterMinus;
             return Token::Error;
         }
-        if c as libc::c_int == '.' as i32 {
-            let mut numRd: libc::c_int = 0 as libc::c_int;
+        if c == b'.' {
+            let mut numRd = 0;
             if *offset >= json_text.len() {
                 return Token::Eof;
             }
             c = self.read_char(json_text, offset);
-            while c as libc::c_int >= '0' as i32 && c as libc::c_int <= '9' as i32 {
+            while c.is_ascii_digit() {
                 numRd += 1;
                 if *offset >= json_text.len() {
                     return Token::Eof;
@@ -586,24 +356,24 @@ impl Lexer {
             }
             tok = Token::Double;
         }
-        if c as libc::c_int == 'e' as i32 || c as libc::c_int == 'E' as i32 {
+        if c == b'e' || c == b'E' {
             if *offset >= json_text.len() {
                 return Token::Eof;
             }
             c = self.read_char(json_text, offset);
-            if c as libc::c_int == '+' as i32 || c as libc::c_int == '-' as i32 {
+            if c == b'+' || c == b'-' {
                 if *offset >= json_text.len() {
                     return Token::Eof;
                 }
                 c = self.read_char(json_text, offset);
             }
-            if c as libc::c_int >= '0' as i32 && c as libc::c_int <= '9' as i32 {
+            if c.is_ascii_digit() {
                 loop {
                     if *offset >= json_text.len() {
                         return Token::Eof;
                     }
                     c = self.read_char(json_text, offset);
-                    if !(c as libc::c_int >= '0' as i32 && c as libc::c_int <= '9' as i32) {
+                    if !c.is_ascii_digit() {
                         break;
                     }
                 }
@@ -618,36 +388,35 @@ impl Lexer {
         tok
     }
     unsafe fn comment(&mut self, json_text: &[u8], offset: &mut usize) -> Token {
-        let mut c: libc::c_uchar = 0;
         let mut tok: Token = Token::Comment;
         if *offset >= json_text.len() {
             return Token::Eof;
         }
-        c = self.read_char(json_text, offset);
-        if c as libc::c_int == '/' as i32 {
+        let mut c = self.read_char(json_text, offset);
+        if c == b'/' {
             loop {
                 if *offset >= json_text.len() {
                     return Token::Eof;
                 }
                 c = self.read_char(json_text, offset);
-                if c as libc::c_int == '\n' as i32 {
+                if c == b'\n' {
                     break;
                 }
             }
-        } else if c as libc::c_int == '*' as i32 {
+        } else if c == b'*' {
             loop {
                 if *offset >= json_text.len() {
                     return Token::Eof;
                 }
                 c = self.read_char(json_text, offset);
-                if c as libc::c_int != '*' as i32 {
+                if c != b'*' {
                     continue;
                 }
                 if *offset >= json_text.len() {
                     return Token::Eof;
                 }
                 c = self.read_char(json_text, offset);
-                if c as libc::c_int == '/' as i32 {
+                if c == b'/' {
                     break;
                 }
                 self.unread_char(offset);
@@ -677,35 +446,35 @@ impl Lexer {
                 break;
             } else {
                 c = self.read_char(json_text, offset);
-                match c as libc::c_int {
-                    123 => {
+                match c {
+                    b'{' => {
                         tok = Token::LeftBracket;
                         break;
                     }
-                    125 => {
+                    b'}' => {
                         tok = Token::RightBracket;
                         break;
                     }
-                    91 => {
+                    b'[' => {
                         tok = Token::LeftBrace;
                         break;
                     }
-                    93 => {
+                    b']' => {
                         tok = Token::RightBrace;
                         break;
                     }
-                    44 => {
+                    b',' => {
                         tok = Token::Comma;
                         break;
                     }
-                    58 => {
+                    b':' => {
                         tok = Token::Colon;
                         break;
                     }
                     9 | 10 | 11 | 12 | 13 | 32 => {
                         startOffset = startOffset.wrapping_add(1);
                     }
-                    116 => {
+                    b't' => {
                         let mut want: *const libc::c_char =
                             b"rue\0" as *const u8 as *const libc::c_char;
                         loop {
@@ -730,7 +499,7 @@ impl Lexer {
                         tok = Token::Bool;
                         break;
                     }
-                    102 => {
+                    b'f' => {
                         let mut want_0: *const libc::c_char =
                             b"alse\0" as *const u8 as *const libc::c_char;
                         loop {
@@ -755,7 +524,7 @@ impl Lexer {
                         tok = Token::Bool;
                         break;
                     }
-                    110 => {
+                    b'n' => {
                         let mut want_1: *const libc::c_char =
                             b"ull\0" as *const u8 as *const libc::c_char;
                         loop {
@@ -780,17 +549,17 @@ impl Lexer {
                         tok = Token::Null;
                         break;
                     }
-                    34 => {
+                    b'"' => {
                         tok = self.string(json_text, offset);
                         break;
                     }
-                    45 | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 => {
+                    b'-' | b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' => {
                         self.unread_char(offset);
                         tok = self.number(json_text, offset);
                         break;
                     }
-                    47 => {
-                        if self.allowComments == 0 {
+                    b'/' => {
+                        if !self.allowComments {
                             self.unread_char(offset);
                             self.error = LexError::UnallowedComment;
                             tok = Token::Error;

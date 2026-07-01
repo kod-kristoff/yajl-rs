@@ -301,9 +301,8 @@ impl Parser {
             unsafe {
                 self.lexer = Lexer::alloc(
                     &mut self.alloc,
-                    self.flags & ParserOption::AllowComments as u32,
-                    (self.flags & ParserOption::DontValidateStrings as u32 == 0) as libc::c_int
-                        as libc::c_uint,
+                    self.flags & ParserOption::AllowComments as u32 != 0,
+                    self.flags & ParserOption::DontValidateStrings as u32 == 0,
                 );
             }
         }

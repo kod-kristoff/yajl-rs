@@ -127,7 +127,7 @@ pub enum ParseIntegerError {
 }
 pub unsafe fn parse_integer(
     mut number: *const u8,
-    mut length: usize,
+    length: usize,
 ) -> Result<i64, ParseIntegerError> {
     let mut ret: i64 = 0;
     let mut sign: i8 = 1;
@@ -139,7 +139,7 @@ pub unsafe fn parse_integer(
     if *pos as i32 == '+' as i32 {
         pos = pos.offset(1);
     }
-    while pos < number.offset(length as isize) {
+    while pos < number.add(length) {
         if ret > MAX_VALUE_TO_MULTIPLY {
             return if sign == 1 {
                 Err(ParseIntegerError::Overflow)
@@ -497,8 +497,8 @@ impl Parser {
                                     (*self.decodeBuf).clear();
                                     (*self.decodeBuf).append(buf as *const c_void, bufLen);
                                     buf = (*self.decodeBuf).data();
-                                    let (d, d_is_error) = if let Some(s) =
-                                        CStr::from_ptr(buf as *const libc::c_char).to_str().ok()
+                                    let (d, d_is_error) = if let Ok(s) =
+                                        CStr::from_ptr(buf as *const libc::c_char).to_str()
                                     {
                                         if let Some((d, d_len)) = strtod::strtod(s) {
                                             (d, false)
