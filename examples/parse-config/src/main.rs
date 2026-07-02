@@ -6,7 +6,7 @@ use std::{
 use ::libc;
 use yajl::tree::{yajl_tree_get, yajl_tree_parse, Value, ValueType};
 
-unsafe fn main_0() -> libc::c_int {
+fn main_0() -> i32 {
     let mut file_data = [0u8; 65536];
 
     let mut errbuf: [u8; 1024] = [0; 1024];
@@ -22,15 +22,17 @@ unsafe fn main_0() -> libc::c_int {
 
     if rd >= (file_data.len()).wrapping_sub(1) {
         eprintln!("config file too big");
-        return 1 as libc::c_int;
+        return 1;
     }
-    let Some(node) = yajl_tree_parse(
-        &file_data[..rd],
-        errbuf.as_mut_ptr() as *mut c_char,
-        errbuf.len(),
-    ) else {
+    let Some(node) = (unsafe {
+        yajl_tree_parse(
+            &file_data[..rd],
+            errbuf.as_mut_ptr() as *mut c_char,
+            errbuf.len(),
+        )
+    }) else {
         eprint!("parse_error: ");
-        if libc::strlen(errbuf.as_ptr() as *const c_char) != 0 {
+        if unsafe { libc::strlen(errbuf.as_ptr() as *const c_char) } != 0 {
             eprintln!(
                 "{}",
                 String::from_utf8_lossy(unsafe { &*(&errbuf[..] as *const _) })
@@ -38,34 +40,40 @@ unsafe fn main_0() -> libc::c_int {
         } else {
             eprintln!("unknown error");
         }
-        return 1 as libc::c_int;
+        return 1;
     };
     let mut path: [*const libc::c_char; 3] = [
         b"Logging\0" as *const u8 as *const libc::c_char,
         b"timeFormat\0" as *const u8 as *const libc::c_char,
         std::ptr::null::<libc::c_char>(),
     ];
-    if let Some(v) = yajl_tree_get(node, path.as_mut_ptr(), ValueType::String) {
-        libc::printf(
-            b"%s/%s: %s\n\0" as *const u8 as *const libc::c_char,
-            path[0 as libc::c_int as usize],
-            path[1 as libc::c_int as usize],
-            if !v.is_null() && (*v).type_0 == ValueType::String {
-                (*v).u.string
-            } else {
-                std::ptr::null_mut::<libc::c_char>()
-            },
-        );
+    if let Some(v) = unsafe { yajl_tree_get(node, path.as_mut_ptr(), ValueType::String) } {
+        unsafe {
+            libc::printf(
+                b"%s/%s: %s\n\0" as *const u8 as *const libc::c_char,
+                path[0 as libc::c_int as usize],
+                path[1 as libc::c_int as usize],
+                if !v.is_null() && (*v).type_0 == ValueType::String {
+                    (*v).u.string
+                } else {
+                    std::ptr::null_mut::<libc::c_char>()
+                },
+            );
+        }
     } else {
-        libc::printf(
-            b"no such node: %s/%s\n\0" as *const u8 as *const libc::c_char,
-            path[0 as libc::c_int as usize],
-            path[1 as libc::c_int as usize],
-        );
+        unsafe {
+            libc::printf(
+                b"no such node: %s/%s\n\0" as *const u8 as *const libc::c_char,
+                path[0 as libc::c_int as usize],
+                path[1 as libc::c_int as usize],
+            );
+        }
     }
-    Value::tree_free(node);
-    0 as libc::c_int
+    unsafe {
+        Value::tree_free(node);
+    }
+    0
 }
 pub fn main() {
-    unsafe { ::std::process::exit(main_0() as i32) }
+    ::std::process::exit(main_0())
 }
