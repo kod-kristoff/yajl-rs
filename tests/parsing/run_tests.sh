@@ -1,11 +1,11 @@
 #!/bin/sh
 
-OS=`uname -o`
+OS=$(uname -o)
 if [ "$OS" = "Android" ]; then
     echo "Android"
     ECHO="echo"
 else
-    ECHO=`which echo`
+    ECHO=$(which echo)
 
 fi
 
@@ -38,7 +38,6 @@ fi
 
 ${ECHO} "using test binary: $testBin"
 
-testBinShort=`basename $testBin`
 
 testsSucceeded=0
 testsTotal=0
@@ -50,7 +49,7 @@ for file in ../../assets/cases/*.json ; do
   allowPartials=""
 
   # if the filename starts with dc_, we disallow comments for this test
-  case $(basename $file) in
+  case $(basename "$file") in
     ac_*)
       allowComments="-c "
     ;;
@@ -64,8 +63,8 @@ for file in ../../assets/cases/*.json ; do
      allowPartials="-p ";
     ;;
   esac
-  fileShort=`basename $file`
-  testName=`echo $fileShort | sed -e 's/\.json$//'`
+  fileShort=$(basename "$file")
+  testName=$(echo "$fileShort" | sed -e 's/\.json$//')
 
   ${ECHO} -n " test ($testName): "
   iter=1
@@ -74,18 +73,18 @@ for file in ../../assets/cases/*.json ; do
   # ${ECHO} -n "$testBinShort $allowPartials$allowComments$allowGarbage$allowMultiple-b $iter < $fileShort > ${fileShort}.test : "
   # parse with a read buffer size ranging from 1-31 to stress stream parsing
   while [ $iter -lt 32  ] && [ $success = "SUCCESS" ] ; do
-    $testBin $allowPartials $allowComments $allowGarbage $allowMultiple -b $iter < $file > ${file}.test  2>&1
-    diff ${DIFF_FLAGS} ${file}.gold ${file}.test > ${file}.out
-    if [ $? -eq 0 ] ; then
-      if [ $iter -eq 31 ] ; then testsSucceeded=$(( $testsSucceeded + 1 )) ; fi
+    $testBin "$allowPartials" "$allowComments" "$allowGarbage" "$allowMultiple" -b $iter < "$file" > "${file}.test"  2>&1
+    if ! diff ${DIFF_FLAGS} "${file}.gold" "${file}.test" > "${file}.out"
+    then
+      if [ $iter -eq 31 ] ; then testsSucceeded=$(( testsSucceeded + 1 )) ; fi
     else
       success="FAILURE"
       iter=32
       ${ECHO}
-      cat ${file}.out
+      cat "${file}.out"
     fi
     iter=$(( iter + 1 ))
-    rm ${file}.test ${file}.out
+    rm "${file}.test" "${file}.out"
   done
 
   ${ECHO} $success
