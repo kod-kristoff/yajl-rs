@@ -10,8 +10,7 @@ use crate::shared::FreeGuard;
 
 #[fixture]
 fn sample_config_data() -> Vec<u8> {
-    let mut file_data: Vec<u8> = fs::read("assets/sample.config").unwrap();
-    file_data.push(0);
+    let file_data: Vec<u8> = fs::read("assets/sample.config").unwrap();
     file_data
 }
 #[rstest]
@@ -19,7 +18,7 @@ fn sample_config_data() -> Vec<u8> {
 #[case(128)]
 fn tree_parse_and_get_number(#[case] buffer_size: usize, sample_config_data: Vec<u8>) {
     let mut error_buffer = vec![0; buffer_size];
-    let node = unsafe {
+    let node_opt = unsafe {
         yajl_tree_parse(
             &sample_config_data,
             if buffer_size == 0 {
@@ -29,8 +28,17 @@ fn tree_parse_and_get_number(#[case] buffer_size: usize, sample_config_data: Vec
             },
             buffer_size,
         )
-    }
-    .unwrap();
+    };
+    let node = if let Some(node) = node_opt {
+        node
+    } else {
+        let msg = if buffer_size > 0 {
+            format!("{:?}", unsafe { CStr::from_ptr(error_buffer.as_ptr()) })
+        } else {
+            String::new()
+        };
+        panic!("yajl_tree_parse failed: {msg}");
+    };
     assert!(!node.is_null());
     unsafe { dbg!(&*node) };
 
