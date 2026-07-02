@@ -98,7 +98,7 @@ fn tree_parse_and_get_string(#[case] buffer_size: usize, sample_config_data: Vec
         let val = unsafe { yajl_tree_get(node, path.as_mut_ptr(), ValueType::String) }.unwrap();
         assert!(!val.is_null());
         let actual = unsafe {
-            CStr::from_ptr((*val).u.string as *const i8)
+            CStr::from_ptr((*val).u.string as *const c_char)
                 .to_str()
                 .unwrap()
         };

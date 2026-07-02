@@ -20,8 +20,7 @@ use yajl_ffi_test_suite::{
 
 #[fixture]
 fn sample_config_data() -> Vec<u8> {
-    let mut file_data: Vec<u8> = fs::read("assets/sample.config").unwrap();
-    file_data.push(0);
+    let file_data: Vec<u8> = fs::read("assets/sample.config").unwrap();
     file_data
 }
 #[rstest]
@@ -31,7 +30,7 @@ fn tree_parse_and_get_number(#[case] buffer_size: usize, sample_config_data: Vec
     let mut error_buffer = vec![0; buffer_size];
     let node = unsafe {
         yajl_tree_parse(
-            sample_config_data.as_ptr() as *const i8,
+            sample_config_data.as_ptr() as *const c_char,
             if buffer_size == 0 {
                 ptr::null_mut()
             } else {
@@ -64,7 +63,7 @@ fn tree_parse_and_get_string(#[case] buffer_size: usize, sample_config_data: Vec
     let mut error_buffer = vec![0; buffer_size];
     let node = unsafe {
         yajl_tree_parse(
-            sample_config_data.as_ptr() as *const i8,
+            sample_config_data.as_ptr() as *const c_char,
             if buffer_size == 0 {
                 ptr::null_mut()
             } else {
@@ -94,7 +93,7 @@ fn tree_parse_and_get_string(#[case] buffer_size: usize, sample_config_data: Vec
         let val = unsafe { yajl_tree_get(node, path.as_mut_ptr(), yajl_t_string) };
         assert!(!val.is_null());
         let actual = unsafe {
-            CStr::from_ptr((*val).u.string as *const i8)
+            CStr::from_ptr((*val).u.string as *const c_char)
                 .to_str()
                 .unwrap()
         };
@@ -117,7 +116,7 @@ fn yajl_tree_parse_fails_when_passing_null_as_input(#[case] buffer_size: usize) 
     let node = unsafe {
         yajl_tree_parse(
             ptr::null(),
-            error_buffer.as_mut_ptr() as *mut i8,
+            error_buffer.as_mut_ptr() as *mut c_char,
             error_buffer.len(),
         )
     };
@@ -160,8 +159,13 @@ fn yajl_tree_get_fails_when_passing_null_as_input() {
 
 #[rstest]
 fn yajl_tree_get_fails_when_passing_null_as_path(sample_config_data: Vec<u8>) {
-    let node =
-        unsafe { yajl_tree_parse(sample_config_data.as_ptr() as *const i8, ptr::null_mut(), 0) };
+    let node = unsafe {
+        yajl_tree_parse(
+            sample_config_data.as_ptr() as *const c_char,
+            ptr::null_mut(),
+            0,
+        )
+    };
     assert!(!node.is_null());
     let _guard = FreeGuard::new(node, yajl_tree_free);
 
@@ -171,8 +175,13 @@ fn yajl_tree_get_fails_when_passing_null_as_path(sample_config_data: Vec<u8>) {
 
 #[rstest]
 fn yajl_tree_get_fails_when_passing_too_large_yajl_type(sample_config_data: Vec<u8>) {
-    let node =
-        unsafe { yajl_tree_parse(sample_config_data.as_ptr() as *const i8, ptr::null_mut(), 0) };
+    let node = unsafe {
+        yajl_tree_parse(
+            sample_config_data.as_ptr() as *const c_char,
+            ptr::null_mut(),
+            0,
+        )
+    };
     assert!(!node.is_null());
     let _guard = FreeGuard::new(node, yajl_tree_free);
 
