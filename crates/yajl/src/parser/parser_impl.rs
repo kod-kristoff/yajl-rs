@@ -217,23 +217,18 @@ impl Parser {
             let mut start: usize = 0;
             let mut end: usize = 0;
             let mut i: usize = 0;
-            let mut spacesNeeded: usize = 0;
-            spacesNeeded = if offset < 30 as libc::c_int as usize {
-                (40 as libc::c_int as usize).wrapping_sub(offset)
+            let spacesNeeded = if offset < 30 { 40 - offset } else { 10 };
+            let mut start = if offset >= 30 {
+                offset.wrapping_sub(30)
             } else {
-                10 as libc::c_int as usize
+                0
             };
-            start = if offset >= 30 as libc::c_int as usize {
-                offset.wrapping_sub(30 as libc::c_int as usize)
-            } else {
-                0 as libc::c_int as usize
-            };
-            end = if offset.wrapping_add(30 as libc::c_int as usize) > json_text.len() {
+            let end = if offset.wrapping_add(30) > json_text.len() {
                 json_text.len()
             } else {
-                offset.wrapping_add(30 as libc::c_int as usize)
+                offset.wrapping_add(30)
             };
-            i = 0 as libc::c_int as usize;
+            let mut i = 0;
             while i < spacesNeeded {
                 text[i] = b' ';
                 i = i.wrapping_add(1);
