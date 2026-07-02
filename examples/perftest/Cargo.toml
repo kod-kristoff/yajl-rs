@@ -3,6 +3,12 @@ name = "perftest"
 edition.workspace = true
 version.workspace = true
 
+[[bin]]
+name = "perftest"
+path = "src/perftest.rs"
+doctest = false
+test = false
+
 [dependencies]
 yajl = { workspace = true }
 # yajl-clib = { workspace = true }

@@ -3,6 +3,17 @@ name = "yajl_test"
 edition.workspace = true
 version.workspace = true
 
+[[bin]]
+name = "yajl_test"
+path = "src/yajl_test.rs"
+doctest = false
+test = false
+
+[[test]]
+name = "yajl_test-run-all-cases"
+path = "tests/run/yajl_test_run_all_cases.rs"
+doctest = false
+
 [dependencies]
 yajl = { workspace = true }
 # yajl-clib = { workspace = true }
