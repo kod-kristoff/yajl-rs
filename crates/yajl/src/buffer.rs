@@ -80,6 +80,7 @@ impl Buffer {
     }
 
     pub(crate) unsafe fn reset(&mut self) {
+        eprintln!("Buffer::reset called");
         unsafe {
             if self.cap > 0 {
                 ((*self.alloc).free).expect("non-null function pointer")(
@@ -147,6 +148,7 @@ impl Buffer {
 
 impl Drop for Buffer {
     fn drop(&mut self) {
+        eprintln!("Buffer::drop called");
         unsafe {
             if self.cap > 0 {
                 ((*self.alloc).free).expect("non-null function pointer")(

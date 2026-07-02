@@ -21,14 +21,13 @@ pub enum Token {
     StringWithEscapes = 13,
     Comment = 14,
 }
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Lexer {
     pub lineOff: usize,
     pub charOff: usize,
     pub error: LexError,
-    pub buf: *mut Buffer,
-    pub bufOff: usize,
+    buf: Buffer,
+    buf_off: usize,
     buf_in_use: bool,
     allowComments: bool,
     validateUTF8: bool,
@@ -64,8 +63,8 @@ impl Lexer {
         (*lxr).lineOff = 0;
         (*lxr).charOff = 0;
         (*lxr).error = LexError::Ok;
-        (*lxr).buf = Buffer::alloc(alloc);
-        (*lxr).bufOff = 0;
+        (*lxr).buf = Buffer::new(alloc);
+        (*lxr).buf_off = 0;
         (*lxr).buf_in_use = false;
         (*lxr).allowComments = allowComments;
         (*lxr).validateUTF8 = validateUTF8;
@@ -74,7 +73,7 @@ impl Lexer {
     }
 
     pub unsafe fn free(mut lxr: *mut Lexer) {
-        Buffer::free((*lxr).buf);
+        (*lxr).buf.reset();
         ((*(*lxr).alloc).free).expect("non-null function pointer")(
             (*(*lxr).alloc).ctx,
             lxr as *mut c_void,
@@ -139,25 +138,25 @@ const charLookupTable: [u8; 256] = [
 ];
 
 impl Lexer {
-    unsafe fn read_char(&mut self, json_text: &[u8], offset: &mut usize) -> u8 {
-        if self.buf_in_use && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len() {
-            let fresh0 = self.bufOff;
-            self.bufOff = (self.bufOff).wrapping_add(1);
-            *((*self.buf).data()).add(fresh0)
+    fn read_char(&mut self, json_text: &[u8], offset: &mut usize) -> u8 {
+        if self.buf_in_use && !self.buf.is_empty() && self.buf_off < self.buf.len() {
+            let fresh0 = self.buf_off;
+            self.buf_off = (self.buf_off).wrapping_add(1);
+            unsafe { *self.buf.data().add(fresh0) }
         } else {
             let fresh1 = *offset;
             *offset = (*offset).wrapping_add(1);
             json_text[fresh1]
         }
     }
-    unsafe fn unread_char(&mut self, offset: &mut usize) {
+    fn unread_char(&mut self, offset: &mut usize) {
         if *offset > 0 {
             *offset = (*offset).wrapping_sub(1);
         } else {
-            self.bufOff = (self.bufOff).wrapping_sub(1);
+            self.buf_off = (self.buf_off).wrapping_sub(1);
         };
     }
-    unsafe fn utf8_char(&mut self, json_text: &[u8], offset: &mut usize, mut curChar: u8) -> Token {
+    fn utf8_char(&mut self, json_text: &[u8], offset: &mut usize, mut curChar: u8) -> Token {
         if curChar <= 0x7f {
             return Token::String;
         } else if curChar >> 5 == 0x6 {
@@ -207,6 +206,14 @@ impl Lexer {
         Token::Error
     }
 }
+fn string_scan(buf: &[u8], utf8check: bool) -> usize {
+    let mask = IJC | NFP | (if utf8check { NUC } else { 0 });
+    let mut skip: usize = 0;
+    while skip < buf.len() && charLookupTable[buf[skip] as usize] & mask == 0 {
+        skip = skip.wrapping_add(1);
+    }
+    skip
+}
 unsafe fn yajl_string_scan(mut buf: *const libc::c_uchar, len: usize, utf8check: bool) -> usize {
     let mut mask = IJC | NFP | (if utf8check { NUC } else { 0 });
     let mut skip: usize = 0;
@@ -217,24 +224,27 @@ unsafe fn yajl_string_scan(mut buf: *const libc::c_uchar, len: usize, utf8check:
     skip
 }
 impl Lexer {
-    unsafe fn string(&mut self, json_text: &[u8], offset: &mut usize) -> Token {
+    fn string(&mut self, json_text: &[u8], offset: &mut usize) -> Token {
         let mut tok: Token = Token::Error;
         let mut hasEscapes = false;
         's_10: loop {
             let mut curChar: libc::c_uchar = 0;
             let mut p: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
             let mut len: usize = 0;
-            if self.buf_in_use && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len() {
-                p = ((*self.buf).data()).add(self.bufOff);
-                len = ((*self.buf).len()).wrapping_sub(self.bufOff);
-                self.bufOff =
-                    (self.bufOff).wrapping_add(yajl_string_scan(p, len, self.validateUTF8))
-                        as usize;
+            if self.buf_in_use && !self.buf.is_empty() && self.buf_off < self.buf.len() {
+                // p = (self.buf.data()).add(self.buf_off);
+                // len = (self.buf.len()).wrapping_sub(self.buf_off);
+                self.buf_off +=
+                    string_scan(&self.buf.as_slice()[self.buf_off..], self.validateUTF8);
+                // self.buf_off =
+                // (self.buf_off).wrapping_add(yajl_string_scan(p, len, self.validateUTF8))
+                // as usize;
             } else if *offset < json_text.len() {
-                p = json_text.as_ptr().add(*offset);
-                len = json_text.len().wrapping_sub(*offset);
-                *offset =
-                    (*offset).wrapping_add(yajl_string_scan(p, len, self.validateUTF8)) as usize;
+                *offset += string_scan(&json_text[(*offset)..], self.validateUTF8);
+                // p = json_text.as_ptr().add(*offset);
+                // len = json_text.len().wrapping_sub(*offset);
+                // *offset =
+                //     (*offset).wrapping_add(yajl_string_scan(p, len, self.validateUTF8)) as usize;
             }
             if *offset >= json_text.len() {
                 tok = Token::Eof;
@@ -304,7 +314,7 @@ impl Lexer {
         }
         tok
     }
-    unsafe fn number(&mut self, json_text: &[u8], offset: &mut usize) -> Token {
+    fn number(&mut self, json_text: &[u8], offset: &mut usize) -> Token {
         let mut tok: Token = Token::Integer;
         if *offset >= json_text.len() {
             return Token::Eof;
@@ -387,7 +397,7 @@ impl Lexer {
         self.unread_char(offset);
         tok
     }
-    unsafe fn comment(&mut self, json_text: &[u8], offset: &mut usize) -> Token {
+    fn comment(&mut self, json_text: &[u8], offset: &mut usize) -> Token {
         let mut tok: Token = Token::Comment;
         if *offset >= json_text.len() {
             return Token::Eof;
@@ -439,7 +449,7 @@ impl Lexer {
         let mut c: libc::c_uchar = 0;
         let mut startOffset: usize = *offset;
         *outBuf = std::ptr::null::<libc::c_uchar>();
-        *outLen = 0 as libc::c_int as usize;
+        *outLen = 0;
         's_21: loop {
             if *offset >= json_text.len() {
                 tok = Token::Eof;
@@ -570,7 +580,7 @@ impl Lexer {
                                 break;
                             }
                             tok = Token::Error;
-                            (*self.buf).clear();
+                            self.buf.clear();
                             self.buf_in_use = false;
                             startOffset = *offset;
                         }
@@ -585,17 +595,18 @@ impl Lexer {
         }
         if tok == Token::Eof || self.buf_in_use {
             if !self.buf_in_use {
-                (*self.buf).clear();
+                self.buf.clear();
             }
             self.buf_in_use = true;
-            (*self.buf).append(
-                json_text.as_ptr().add(startOffset) as *const libc::c_void,
-                (*offset).wrapping_sub(startOffset),
-            );
-            self.bufOff = 0;
+            self.buf.extend_from_slice(&json_text[startOffset..*offset]);
+            // self.buf.append(
+            //     json_text.as_ptr().add(startOffset) as *const libc::c_void,
+            //     (*offset).wrapping_sub(startOffset),
+            // );
+            self.buf_off = 0;
             if tok != Token::Eof {
-                *outBuf = (*self.buf).data();
-                *outLen = (*self.buf).len();
+                *outBuf = self.buf.data();
+                *outLen = self.buf.len();
                 self.buf_in_use = false;
             }
         } else if tok != Token::Error {
@@ -604,7 +615,7 @@ impl Lexer {
         }
         if tok == Token::String || tok == Token::StringWithEscapes {
             *outBuf = (*outBuf).offset(1);
-            *outLen = { *outLen }.wrapping_sub(2 as libc::c_int as usize);
+            *outLen = (*outLen).wrapping_sub(2);
         }
         tok
     }
@@ -664,14 +675,14 @@ impl Lexer {
     pub unsafe fn peek(&mut self, json_text: &[u8], mut offset: usize) -> Token {
         let mut outBuf: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
         let mut outLen: usize = 0;
-        let mut bufLen: usize = (*self.buf).len();
-        let mut bufOff: usize = self.bufOff;
+        let mut bufLen: usize = self.buf.len();
+        let mut buf_off: usize = self.buf_off;
         let buf_in_use = self.buf_in_use;
         let mut tok: Token = Token::Bool;
         tok = self.lex(json_text, &mut offset, &mut outBuf, &mut outLen);
-        self.bufOff = bufOff;
+        self.buf_off = buf_off;
         self.buf_in_use = buf_in_use;
-        (*self.buf).truncate(bufLen);
+        self.buf.truncate(bufLen);
         tok
     }
 }
