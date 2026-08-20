@@ -1,5 +1,5 @@
 #![allow(clippy::missing_safety_doc)]
-use core::ptr;
+use core::{ptr, slice};
 
 use yajl::{
     parser::{yajl_callbacks, Parser},
@@ -18,11 +18,11 @@ pub type yajl_status = u32;
 /// # Arguments
 ///
 /// * `callbacks` - a yajl callbacks structure specifying the
-///                    functions to call when different JSON entities
-///                    are encountered in the input text.  May be NULL,
-///                    which is only useful for validation.
+///   functions to call when different JSON entities
+///   are encountered in the input text.  May be NULL,
+///   which is only useful for validation.
 /// * `afs` - memory allocation functions, may be NULL for to use
-///                    C runtime library routines (malloc and friends)
+///   C runtime library routines (malloc and friends)
 /// * `ctx` - a context pointer that will be passed to callbacks.
 ///
 /// # Safety
@@ -114,7 +114,12 @@ pub unsafe extern "C" fn yajl_parse(
         return Status::Error as yajl_status;
     }
     let parser = unsafe { &mut *hand };
-    parser.parse(jsonText, jsonTextLen) as yajl_status
+
+    if jsonText.is_null() {
+        return Status::Error as yajl_status;
+    }
+    let json_text: &[u8] = slice::from_raw_parts(jsonText, jsonTextLen);
+    parser.parse(json_text) as yajl_status
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_complete_parse(mut hand: *mut yajl_handle_t) -> yajl_status {
@@ -135,7 +140,11 @@ pub unsafe extern "C" fn yajl_get_error(
         return ptr::null_mut();
     }
     let parser = unsafe { &mut *hand };
-    parser.get_error(verbose != 0, jsonText, jsonTextLen)
+    if jsonText.is_null() {
+        return ptr::null_mut();
+    }
+    let json_text: &[u8] = slice::from_raw_parts(jsonText, jsonTextLen);
+    parser.get_error(verbose != 0, json_text)
 }
 #[no_mangle]
 pub unsafe extern "C" fn yajl_get_bytes_consumed(mut hand: *mut yajl_handle_t) -> libc::size_t {

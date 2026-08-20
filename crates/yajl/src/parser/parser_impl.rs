@@ -1,6 +1,7 @@
 #![allow(clippy::missing_safety_doc)]
 use core::ffi::{c_char, c_void, CStr};
 use core::ptr;
+use std::ffi::c_uchar;
 
 use crate::{yajl_alloc::yajl_alloc_funcs, yajl_encode::yajl_string_decode, ParserOption, Status};
 
@@ -127,7 +128,7 @@ pub enum ParseIntegerError {
 }
 pub unsafe fn parse_integer(
     mut number: *const u8,
-    mut length: usize,
+    length: usize,
 ) -> Result<i64, ParseIntegerError> {
     let mut ret: i64 = 0;
     let mut sign: i8 = 1;
@@ -139,7 +140,7 @@ pub unsafe fn parse_integer(
     if *pos as i32 == '+' as i32 {
         pos = pos.offset(1);
     }
-    while pos < number.offset(length as isize) {
+    while pos < number.add(length) {
         if ret > MAX_VALUE_TO_MULTIPLY {
             return if sign == 1 {
                 Err(ParseIntegerError::Overflow)
@@ -165,132 +166,111 @@ pub unsafe fn parse_integer(
     Ok(sign as i64 * ret)
 }
 impl Parser {
-    pub unsafe fn render_error_string(
-        &self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-        mut verbose: bool,
-    ) -> *mut libc::c_uchar {
+    pub unsafe fn render_error_string(&self, json_text: &[u8], mut verbose: bool) -> *mut c_uchar {
         let mut offset: usize = self.bytesConsumed;
-        let mut str: *mut libc::c_uchar = std::ptr::null_mut::<libc::c_uchar>();
+        let mut str: *mut c_uchar = ptr::null_mut();
         let mut errorType: *const c_char = ptr::null();
         let mut errorText: *const c_char = ptr::null();
-        let mut text: [libc::c_char; 72] = [0; 72];
-        let mut arrow: *const libc::c_char =
-            b"                     (right here) ------^\n\0" as *const u8 as *const libc::c_char;
+        let mut text: [u8; 72] = [0; 72];
+        let mut arrow: *const c_char =
+            b"                     (right here) ------^\n\0" as *const u8 as *const c_char;
         match self.stateStack.top() {
             ParseState::ParseError => {
-                errorType = b"parse\0" as *const u8 as *const libc::c_char;
+                errorType = b"parse\0" as *const u8 as *const c_char;
                 errorText = self.parseError.unwrap().as_c_str_ptr();
             }
             ParseState::LexicalError => {
-                errorType = b"lexical\0" as *const u8 as *const libc::c_char;
+                errorType = b"lexical\0" as *const u8 as *const c_char;
                 errorText = (*self.lexer).get_error().as_c_str_ptr();
             }
             _ => {
-                errorType = b"unknown\0" as *const u8 as *const libc::c_char;
+                errorType = b"unknown\0" as *const u8 as *const c_char;
             }
         }
         let mut memneeded: usize = 0;
         memneeded = (memneeded).wrapping_add(libc::strlen(errorType));
-        memneeded = (memneeded).wrapping_add(libc::strlen(
-            b" error\0" as *const u8 as *const libc::c_char,
-        ));
+        memneeded =
+            (memneeded).wrapping_add(libc::strlen(b" error\0" as *const u8 as *const c_char));
         if !errorText.is_null() {
-            memneeded =
-                memneeded.wrapping_add(libc::strlen(b": \0" as *const u8 as *const libc::c_char));
+            memneeded = memneeded.wrapping_add(libc::strlen(b": \0" as *const u8 as *const c_char));
             memneeded = memneeded.wrapping_add(libc::strlen(errorText));
         }
         str = (self.alloc.malloc).expect("non-null function pointer")(
             self.alloc.ctx,
-            memneeded.wrapping_add(2 as libc::c_int as usize),
+            memneeded.wrapping_add(2),
         ) as *mut libc::c_uchar;
         if str.is_null() {
-            return ptr::null_mut::<libc::c_uchar>();
+            return ptr::null_mut();
         }
-        *str.offset(0 as libc::c_int as isize) = 0 as libc::c_int as libc::c_uchar;
-        libc::strcat(str as *mut libc::c_char, errorType);
+        str.add(0).write(0);
+        libc::strcat(str as *mut c_char, errorType);
         libc::strcat(
-            str as *mut libc::c_char,
-            b" error\0" as *const u8 as *const libc::c_char,
+            str as *mut c_char,
+            b" error\0" as *const u8 as *const c_char,
         );
         if !errorText.is_null() {
-            libc::strcat(
-                str as *mut libc::c_char,
-                b": \0" as *const u8 as *const libc::c_char,
-            );
-            libc::strcat(str as *mut libc::c_char, errorText);
+            libc::strcat(str as *mut c_char, b": \0" as *const u8 as *const c_char);
+            libc::strcat(str as *mut c_char, errorText);
         }
-        libc::strcat(
-            str as *mut libc::c_char,
-            b"\n\0" as *const u8 as *const libc::c_char,
-        );
+        libc::strcat(str as *mut c_char, b"\n\0" as *const u8 as *const c_char);
         if verbose {
             let mut start: usize = 0;
             let mut end: usize = 0;
             let mut i: usize = 0;
-            let mut spacesNeeded: usize = 0;
-            spacesNeeded = if offset < 30 as libc::c_int as usize {
-                (40 as libc::c_int as usize).wrapping_sub(offset)
+            let spacesNeeded = if offset < 30 { 40 - offset } else { 10 };
+            let mut start = if offset >= 30 {
+                offset.wrapping_sub(30)
             } else {
-                10 as libc::c_int as usize
+                0
             };
-            start = if offset >= 30 as libc::c_int as usize {
-                offset.wrapping_sub(30 as libc::c_int as usize)
+            let end = if offset.wrapping_add(30) > json_text.len() {
+                json_text.len()
             } else {
-                0 as libc::c_int as usize
+                offset.wrapping_add(30)
             };
-            end = if offset.wrapping_add(30 as libc::c_int as usize) > jsonTextLen {
-                jsonTextLen
-            } else {
-                offset.wrapping_add(30 as libc::c_int as usize)
-            };
-            i = 0 as libc::c_int as usize;
+            let mut i = 0;
             while i < spacesNeeded {
-                text[i] = ' ' as i32 as libc::c_char;
+                text[i] = b' ';
                 i = i.wrapping_add(1);
             }
             while start < end {
-                if *jsonText.add(start) as libc::c_int != '\n' as i32
-                    && *jsonText.add(start) as libc::c_int != '\r' as i32
-                {
-                    text[i] = *jsonText.add(start) as libc::c_char;
+                if json_text[start] != b'\n' && json_text[start] != b'\r' {
+                    text[i] = json_text[start];
                 } else {
-                    text[i] = ' ' as i32 as libc::c_char;
+                    text[i] = b' ';
                 }
                 start = start.wrapping_add(1);
                 i = i.wrapping_add(1);
             }
             let fresh1 = i;
             i = i.wrapping_add(1);
-            text[fresh1] = '\n' as i32 as libc::c_char;
-            text[i] = 0 as libc::c_int as libc::c_char;
-            let mut newStr: *mut libc::c_char = (self.alloc.malloc)
-                .expect("non-null function pointer")(
+            text[fresh1] = b'\n';
+            text[i] = 0;
+            let mut newStr: *mut c_char = (self.alloc.malloc).expect("non-null function pointer")(
                 self.alloc.ctx,
-                (libc::strlen(str as *mut libc::c_char))
-                    .wrapping_add(libc::strlen(text.as_mut_ptr()))
+                (libc::strlen(str as *mut c_char))
+                    .wrapping_add(libc::strlen(text.as_ptr() as *const c_char))
                     .wrapping_add(libc::strlen(arrow))
                     .wrapping_add(1),
             ) as *mut libc::c_char;
             if !newStr.is_null() {
-                *newStr.offset(0 as libc::c_int as isize) = 0 as libc::c_int as libc::c_char;
-                libc::strcat(newStr, str as *mut libc::c_char);
-                libc::strcat(newStr, text.as_mut_ptr());
+                *newStr.offset(0 as libc::c_int as isize) = 0;
+                libc::strcat(newStr, str as *mut c_char);
+                libc::strcat(newStr, text.as_ptr() as *const c_char);
                 libc::strcat(newStr, arrow);
             }
             (self.alloc.free).expect("non-null function pointer")(
                 self.alloc.ctx,
                 str as *mut libc::c_void,
             );
-            str = newStr as *mut libc::c_uchar;
+            str = newStr as *mut c_uchar;
         }
         str
     }
 }
 impl Parser {
     pub unsafe fn do_finish(&mut self) -> Status {
-        let stat = self.do_parse(b" \0" as *const u8, 1);
+        let stat = self.do_parse(b" ");
         if stat != Status::Ok {
             return stat;
         }
@@ -308,16 +288,12 @@ impl Parser {
         }
     }
 
-    pub unsafe fn do_parse(
-        &mut self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-    ) -> Status {
+    pub unsafe fn do_parse(&mut self, json_text: &[u8]) -> Status {
         let mut current_block: u64;
         let mut tok: Token = Token::Bool;
         let mut buf: *const libc::c_uchar = ptr::null::<libc::c_uchar>();
         let mut bufLen: usize = 0;
-        let mut offset: *mut usize = &mut self.bytesConsumed;
+        let offset = &mut self.bytesConsumed;
         *offset = 0;
         loop {
             match self.stateStack.top() {
@@ -328,11 +304,10 @@ impl Parser {
                         if self.flags & ParserOption::AllowTrailingGarbage as libc::c_uint != 0 {
                             break;
                         }
-                        if *offset == jsonTextLen {
+                        if *offset == json_text.len() {
                             break;
                         }
-                        tok =
-                            (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                        tok = (*self.lexer).lex(json_text, offset, &mut buf, &mut bufLen);
                         if tok != Token::Eof {
                             *self.stateStack.top_mut() = ParseState::ParseError;
                             self.parseError = Some(ParseError::TrailingGarbage);
@@ -346,7 +321,7 @@ impl Parser {
                 | ParseState::ArrayNeedVal
                 | ParseState::ArrayStart => {
                     let mut stateToPush = ParseState::Start;
-                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                    tok = (*self.lexer).lex(json_text, offset, &mut buf, &mut bufLen);
                     match tok {
                         Token::Eof => return Status::Ok,
                         Token::Error => {
@@ -504,8 +479,8 @@ impl Parser {
                                     (*self.decodeBuf).clear();
                                     (*self.decodeBuf).append(buf as *const c_void, bufLen);
                                     buf = (*self.decodeBuf).data();
-                                    let (d, d_is_error) = if let Some(s) =
-                                        CStr::from_ptr(buf as *const i8).to_str().ok()
+                                    let (d, d_is_error) = if let Ok(s) =
+                                        CStr::from_ptr(buf as *const libc::c_char).to_str()
                                     {
                                         if let Some((d, d_len)) = strtod::strtod(s) {
                                             (d, false)
@@ -589,7 +564,7 @@ impl Parser {
                     }
                 }
                 ParseState::MapStart | ParseState::MapNeedKey => {
-                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                    tok = (*self.lexer).lex(json_text, offset, &mut buf, &mut bufLen);
                     match tok {
                         Token::Eof => return Status::Ok,
                         Token::Error => {
@@ -610,24 +585,20 @@ impl Parser {
                         Token::String => {
                             current_block = 5544887021832600539;
                         }
-                        Token::RightBracket => {
-                            if self.stateStack.top() == ParseState::MapStart {
-                                if !(self.callbacks).is_null()
-                                    && ((*self.callbacks).yajl_end_map).is_some()
-                                    && ((*self.callbacks).yajl_end_map)
-                                        .expect("non-null function pointer")(
-                                        self.ctx
-                                    ) == 0
-                                {
-                                    *self.stateStack.top_mut() = ParseState::ParseError;
-                                    self.parseError = Some(ParseError::ClientCancelled);
-                                    return Status::ClientCanceled;
-                                }
-                                self.stateStack.pop();
-                                continue;
-                            } else {
-                                current_block = 17513148302838498461;
+                        Token::RightBracket if self.stateStack.top() == ParseState::MapStart => {
+                            if !(self.callbacks).is_null()
+                                && ((*self.callbacks).yajl_end_map).is_some()
+                                && ((*self.callbacks).yajl_end_map)
+                                    .expect("non-null function pointer")(
+                                    self.ctx
+                                ) == 0
+                            {
+                                *self.stateStack.top_mut() = ParseState::ParseError;
+                                self.parseError = Some(ParseError::ClientCancelled);
+                                return Status::ClientCanceled;
                             }
+                            self.stateStack.pop();
+                            continue;
                         }
                         _ => {
                             current_block = 17513148302838498461;
@@ -655,7 +626,7 @@ impl Parser {
                     }
                 }
                 ParseState::MapSep => {
-                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                    tok = (*self.lexer).lex(json_text, offset, &mut buf, &mut bufLen);
                     match tok {
                         Token::Colon => {
                             *self.stateStack.top_mut() = ParseState::MapNeedVal;
@@ -671,7 +642,7 @@ impl Parser {
                     }
                 }
                 ParseState::MapGotVal => {
-                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                    tok = (*self.lexer).lex(json_text, offset, &mut buf, &mut bufLen);
                     match tok {
                         Token::RightBracket => {
                             if !(self.callbacks).is_null()
@@ -706,7 +677,7 @@ impl Parser {
                     }
                 }
                 ParseState::ArrayGotVal => {
-                    tok = (*self.lexer).lex(jsonText, jsonTextLen, offset, &mut buf, &mut bufLen);
+                    tok = (*self.lexer).lex(json_text, offset, &mut buf, &mut bufLen);
                     match tok {
                         Token::RightBrace => {
                             if !(self.callbacks).is_null()

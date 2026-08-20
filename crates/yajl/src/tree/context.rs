@@ -231,18 +231,18 @@ impl Context {
                 (*(*ctx).stack).key = (*v).u.string;
                 (*v).u.string = ptr::null_mut::<c_char>();
                 libc::free(v as *mut c_void);
-                return Ok(());
+                Ok(())
             } else {
                 let mut key: *mut c_char = ptr::null_mut::<c_char>();
                 key = (*(*ctx).stack).key;
                 (*(*ctx).stack).key = ptr::null_mut::<c_char>();
-                return Context::object_add_keyval(ctx, (*(*ctx).stack).value, key, v);
+                Context::object_add_keyval(ctx, (*(*ctx).stack).value, key, v)
             }
         } else if !((*(*ctx).stack).value).is_null()
             && (*(*(*ctx).stack).value).type_0 as libc::c_uint
                 == ValueType::Array as libc::c_int as libc::c_uint
         {
-            return Context::array_add_value(ctx, (*(*ctx).stack).value, v);
+            Context::array_add_value(ctx, (*(*ctx).stack).value, v)
         } else {
             if !((*ctx).errbuf).is_null() {
                 libc::snprintf(
@@ -253,7 +253,7 @@ impl Context {
                 (*(*(*ctx).stack).value).type_0 as libc::c_uint,
             );
             }
-            return Err(ValueError::CantAddValueToNonCompsiteType);
+            Err(ValueError::CantAddValueToNonCompsiteType)
         }
     }
 }

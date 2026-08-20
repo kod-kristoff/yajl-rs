@@ -21,17 +21,16 @@ pub enum Token {
     StringWithEscapes = 13,
     Comment = 14,
 }
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Lexer {
     pub lineOff: usize,
     pub charOff: usize,
     pub error: LexError,
-    pub buf: *mut Buffer,
-    pub bufOff: usize,
-    pub bufInUse: libc::c_uint,
-    pub allowComments: libc::c_uint,
-    pub validateUTF8: libc::c_uint,
+    buf: Buffer,
+    buf_off: usize,
+    buf_in_use: bool,
+    allowComments: bool,
+    validateUTF8: bool,
     pub alloc: *mut yajl_alloc_funcs,
 }
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -53,8 +52,8 @@ pub enum LexError {
 impl Lexer {
     pub unsafe fn alloc(
         mut alloc: *mut yajl_alloc_funcs,
-        mut allowComments: libc::c_uint,
-        mut validateUTF8: libc::c_uint,
+        allowComments: bool,
+        validateUTF8: bool,
     ) -> *mut Lexer {
         let mut lxr: *mut Lexer = ((*alloc).malloc).expect("non-null function pointer")(
             (*alloc).ctx,
@@ -64,9 +63,9 @@ impl Lexer {
         (*lxr).lineOff = 0;
         (*lxr).charOff = 0;
         (*lxr).error = LexError::Ok;
-        (*lxr).buf = Buffer::alloc(alloc);
-        (*lxr).bufOff = 0;
-        (*lxr).bufInUse = 0;
+        (*lxr).buf = Buffer::new(alloc);
+        (*lxr).buf_off = 0;
+        (*lxr).buf_in_use = false;
         (*lxr).allowComments = allowComments;
         (*lxr).validateUTF8 = validateUTF8;
         (*lxr).alloc = alloc;
@@ -74,382 +73,131 @@ impl Lexer {
     }
 
     pub unsafe fn free(mut lxr: *mut Lexer) {
-        Buffer::free((*lxr).buf);
+        (*lxr).buf.reset();
         ((*(*lxr).alloc).free).expect("non-null function pointer")(
             (*(*lxr).alloc).ctx,
             lxr as *mut c_void,
         );
     }
 }
-static mut charLookupTable: [libc::c_char; 256] = [
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0x2 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    (0x8 as libc::c_int | 0x1 as libc::c_int | 0x2 as libc::c_int) as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x1 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    (0x8 as libc::c_int | 0x1 as libc::c_int | 0x2 as libc::c_int) as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    (0x1 as libc::c_int | 0x4 as libc::c_int) as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    0x4 as libc::c_int as libc::c_char,
-    (0x1 as libc::c_int | 0x4 as libc::c_int) as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x1 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x1 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x1 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
-    0x10 as libc::c_int as libc::c_char,
+
+/* a lookup table which lets us quickly determine three things:
+ * VEC - valid escaped control char
+ * note.  the solidus '/' may be escaped or not.
+ * IJC - invalid json char
+ * VHC - valid hex char
+ * NFP - needs further processing (from a string scanning perspective)
+ * NUC - needs utf8 checking when enabled (from a string scanning perspective)
+ */
+const VEC: u8 = 0x01;
+const IJC: u8 = 0x02;
+const VHC: u8 = 0x04;
+const NFP: u8 = 0x08;
+const NUC: u8 = 0x10;
+#[rustfmt::skip]
+const charLookupTable: [u8; 256] = [
+/*00*/ IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    ,
+/*08*/ IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    ,
+/*10*/ IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    ,
+/*18*/ IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    ,
+
+/*20*/ 0      , 0      , NFP|VEC|IJC, 0      , 0      , 0      , 0      , 0      ,
+/*28*/ 0      , 0      , 0      , 0      , 0      , 0      , 0      , VEC    ,
+/*30*/ VHC    , VHC    , VHC    , VHC    , VHC    , VHC    , VHC    , VHC    ,
+/*38*/ VHC    , VHC    , 0      , 0      , 0      , 0      , 0      , 0      ,
+
+/*40*/ 0      , VHC    , VHC    , VHC    , VHC    , VHC    , VHC    , 0      ,
+/*48*/ 0      , 0      , 0      , 0      , 0      , 0      , 0      , 0      ,
+/*50*/ 0      , 0      , 0      , 0      , 0      , 0      , 0      , 0      ,
+/*58*/ 0      , 0      , 0      , 0      , NFP|VEC|IJC, 0      , 0      , 0      ,
+
+/*60*/ 0      , VHC    , VEC|VHC, VHC    , VHC    , VHC    , VEC|VHC, 0      ,
+/*68*/ 0      , 0      , 0      , 0      , 0      , 0      , VEC    , 0      ,
+/*70*/ 0      , 0      , VEC    , 0      , VEC    , 0      , 0      , 0      ,
+/*78*/ 0      , 0      , 0      , 0      , 0      , 0      , 0      , 0      ,
+
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC
 ];
+
 impl Lexer {
-    unsafe fn utf8_char(
-        &mut self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-        mut offset: *mut usize,
-        mut curChar: libc::c_uchar,
-    ) -> Token {
-        if curChar as libc::c_int <= 0x7f as libc::c_int {
+    fn read_char(&mut self, json_text: &[u8], offset: &mut usize) -> u8 {
+        if self.buf_in_use && !self.buf.is_empty() && self.buf_off < self.buf.len() {
+            let fresh0 = self.buf_off;
+            self.buf_off = (self.buf_off).wrapping_add(1);
+            unsafe { *self.buf.data().add(fresh0) }
+        } else {
+            let fresh1 = *offset;
+            *offset = (*offset).wrapping_add(1);
+            json_text[fresh1]
+        }
+    }
+    fn unread_char(&mut self, offset: &mut usize) {
+        if *offset > 0 {
+            *offset = (*offset).wrapping_sub(1);
+        } else {
+            self.buf_off = (self.buf_off).wrapping_sub(1);
+        };
+    }
+    fn utf8_char(&mut self, json_text: &[u8], offset: &mut usize, mut curChar: u8) -> Token {
+        if curChar <= 0x7f {
             return Token::String;
-        } else if curChar as libc::c_int >> 5 as libc::c_int == 0x6 as libc::c_int {
-            if *offset >= jsonTextLen {
+        } else if curChar >> 5 == 0x6 {
+            if *offset >= json_text.len() {
                 return Token::Eof;
             }
-            curChar =
-                (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
-                {
-                    let fresh0 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh0) as libc::c_int
-                } else {
-                    let fresh1 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh1) as libc::c_int
-                }) as libc::c_uchar;
-            if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
+            curChar = self.read_char(json_text, offset);
+            if curChar >> 6 == 0x2 {
                 return Token::String;
             }
-        } else if curChar as libc::c_int >> 4 as libc::c_int == 0xe as libc::c_int {
-            if *offset >= jsonTextLen {
+        } else if curChar >> 4 == 0xe {
+            if *offset >= json_text.len() {
                 return Token::Eof;
             }
-            curChar =
-                (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
-                {
-                    let fresh2 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh2) as libc::c_int
-                } else {
-                    let fresh3 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh3) as libc::c_int
-                }) as libc::c_uchar;
-            if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
-                if *offset >= jsonTextLen {
+            curChar = self.read_char(json_text, offset);
+            if curChar >> 6 == 0x2 {
+                if *offset >= json_text.len() {
                     return Token::Eof;
                 }
-                curChar = (if self.bufInUse != 0
-                    && (*self.buf).len() != 0
-                    && self.bufOff < (*self.buf).len()
-                {
-                    let fresh4 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh4) as libc::c_int
-                } else {
-                    let fresh5 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh5) as libc::c_int
-                }) as libc::c_uchar;
-                if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
+                curChar = self.read_char(json_text, offset);
+                if curChar >> 6 == 0x2 {
                     return Token::String;
                 }
             }
-        } else if curChar as libc::c_int >> 3 as libc::c_int == 0x1e as libc::c_int {
-            if *offset >= jsonTextLen {
+        } else if curChar >> 3 == 0x1e {
+            if *offset >= json_text.len() {
                 return Token::Eof;
             }
-            curChar =
-                (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
-                {
-                    let fresh6 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh6) as libc::c_int
-                } else {
-                    let fresh7 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh7) as libc::c_int
-                }) as libc::c_uchar;
-            if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
-                if *offset >= jsonTextLen {
+            curChar = self.read_char(json_text, offset);
+
+            if curChar >> 6 == 0x2 {
+                if *offset >= json_text.len() {
                     return Token::Eof;
                 }
-                curChar = (if self.bufInUse != 0
-                    && (*self.buf).len() != 0
-                    && self.bufOff < (*self.buf).len()
-                {
-                    let fresh8 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh8) as libc::c_int
-                } else {
-                    let fresh9 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh9) as libc::c_int
-                }) as libc::c_uchar;
-                if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
-                    if *offset >= jsonTextLen {
+                curChar = self.read_char(json_text, offset);
+                if curChar >> 6 == 0x2 {
+                    if *offset >= json_text.len() {
                         return Token::Eof;
                     }
-                    curChar = (if self.bufInUse != 0
-                        && (*self.buf).len() != 0
-                        && self.bufOff < (*self.buf).len()
-                    {
-                        let fresh10 = self.bufOff;
-                        self.bufOff = (self.bufOff).wrapping_add(1);
-                        *((*self.buf).data()).add(fresh10) as libc::c_int
-                    } else {
-                        let fresh11 = *offset;
-                        *offset = (*offset).wrapping_add(1);
-                        *jsonText.add(fresh11) as libc::c_int
-                    }) as libc::c_uchar;
-                    if curChar as libc::c_int >> 6 as libc::c_int == 0x2 as libc::c_int {
+                    curChar = self.read_char(json_text, offset);
+                    if curChar >> 6 == 0x2 {
                         return Token::String;
                     }
                 }
@@ -458,122 +206,71 @@ impl Lexer {
         Token::Error
     }
 }
-unsafe fn yajl_string_scan(
-    mut buf: *const libc::c_uchar,
-    mut len: usize,
-    mut utf8check: libc::c_int,
-) -> usize {
-    let mut mask: libc::c_uchar = (0x2 as libc::c_int
-        | 0x8 as libc::c_int
-        | (if utf8check != 0 {
-            0x10 as libc::c_int
-        } else {
-            0 as libc::c_int
-        })) as libc::c_uchar;
-    let mut skip: usize = 0 as libc::c_int as usize;
-    while skip < len && charLookupTable[*buf as usize] as libc::c_int & mask as libc::c_int == 0 {
+fn string_scan(buf: &[u8], utf8check: bool) -> usize {
+    let mask = IJC | NFP | (if utf8check { NUC } else { 0 });
+    let mut skip: usize = 0;
+    while skip < buf.len() && charLookupTable[buf[skip] as usize] & mask == 0 {
+        skip = skip.wrapping_add(1);
+    }
+    skip
+}
+unsafe fn yajl_string_scan(mut buf: *const libc::c_uchar, len: usize, utf8check: bool) -> usize {
+    let mut mask = IJC | NFP | (if utf8check { NUC } else { 0 });
+    let mut skip: usize = 0;
+    while skip < len && charLookupTable[*buf as usize] & mask == 0 {
         skip = skip.wrapping_add(1);
         buf = buf.offset(1);
     }
     skip
 }
 impl Lexer {
-    unsafe fn string(
-        &mut self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-        mut offset: *mut usize,
-    ) -> Token {
+    fn string(&mut self, json_text: &[u8], offset: &mut usize) -> Token {
         let mut tok: Token = Token::Error;
-        let mut hasEscapes: libc::c_int = 0 as libc::c_int;
+        let mut hasEscapes = false;
         's_10: loop {
             let mut curChar: libc::c_uchar = 0;
             let mut p: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
             let mut len: usize = 0;
-            if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len() {
-                p = ((*self.buf).data()).add(self.bufOff);
-                len = ((*self.buf).len()).wrapping_sub(self.bufOff);
-                self.bufOff = (self.bufOff).wrapping_add(yajl_string_scan(
-                    p,
-                    len,
-                    self.validateUTF8 as libc::c_int,
-                )) as usize;
-            } else if *offset < jsonTextLen {
-                p = jsonText.add(*offset);
-                len = jsonTextLen.wrapping_sub(*offset);
-                *offset = (*offset).wrapping_add(yajl_string_scan(
-                    p,
-                    len,
-                    self.validateUTF8 as libc::c_int,
-                )) as usize;
+            if self.buf_in_use && !self.buf.is_empty() && self.buf_off < self.buf.len() {
+                // p = (self.buf.data()).add(self.buf_off);
+                // len = (self.buf.len()).wrapping_sub(self.buf_off);
+                self.buf_off +=
+                    string_scan(&self.buf.as_slice()[self.buf_off..], self.validateUTF8);
+                // self.buf_off =
+                // (self.buf_off).wrapping_add(yajl_string_scan(p, len, self.validateUTF8))
+                // as usize;
+            } else if *offset < json_text.len() {
+                *offset += string_scan(&json_text[(*offset)..], self.validateUTF8);
+                // p = json_text.as_ptr().add(*offset);
+                // len = json_text.len().wrapping_sub(*offset);
+                // *offset =
+                //     (*offset).wrapping_add(yajl_string_scan(p, len, self.validateUTF8)) as usize;
             }
-            if *offset >= jsonTextLen {
+            if *offset >= json_text.len() {
                 tok = Token::Eof;
                 break;
             } else {
-                curChar = (if self.bufInUse != 0
-                    && (*self.buf).len() != 0
-                    && self.bufOff < (*self.buf).len()
-                {
-                    let fresh12 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh12) as libc::c_int
-                } else {
-                    let fresh13 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh13) as libc::c_int
-                }) as libc::c_uchar;
-                if curChar as libc::c_int == '"' as i32 {
+                curChar = self.read_char(json_text, offset);
+                if curChar == b'"' {
                     tok = Token::String;
                     break;
-                } else if curChar as libc::c_int == '\\' as i32 {
-                    hasEscapes = 1 as libc::c_int;
-                    if *offset >= jsonTextLen {
+                } else if curChar == b'\\' {
+                    hasEscapes = true;
+                    if *offset >= json_text.len() {
                         tok = Token::Eof;
                         break;
                     } else {
-                        curChar = (if self.bufInUse != 0
-                            && (*self.buf).len() != 0
-                            && self.bufOff < (*self.buf).len()
-                        {
-                            let fresh14 = self.bufOff;
-                            self.bufOff = (self.bufOff).wrapping_add(1);
-                            *((*self.buf).data()).add(fresh14) as libc::c_int
-                        } else {
-                            let fresh15 = *offset;
-                            *offset = (*offset).wrapping_add(1);
-                            *jsonText.add(fresh15) as libc::c_int
-                        }) as libc::c_uchar;
-                        if curChar as libc::c_int == 'u' as i32 {
-                            let mut i: libc::c_uint = 0;
-                            i = 0;
+                        curChar = self.read_char(json_text, offset);
+                        if curChar == b'u' {
+                            let mut i: i32 = 0;
                             while i < 4 {
-                                if *offset >= jsonTextLen {
+                                if *offset >= json_text.len() {
                                     tok = Token::Eof;
                                     break 's_10;
                                 } else {
-                                    curChar = (if self.bufInUse != 0
-                                        && (*self.buf).len() != 0
-                                        && self.bufOff < (*self.buf).len()
-                                    {
-                                        let fresh16 = self.bufOff;
-                                        self.bufOff = (self.bufOff).wrapping_add(1);
-                                        *((*self.buf).data()).add(fresh16) as libc::c_int
-                                    } else {
-                                        let fresh17 = *offset;
-                                        *offset = (*offset).wrapping_add(1);
-                                        *jsonText.add(fresh17) as libc::c_int
-                                    })
-                                        as libc::c_uchar;
-                                    if charLookupTable[curChar as usize] as libc::c_int
-                                        & 0x4 as libc::c_int
-                                        == 0
-                                    {
-                                        if *offset > 0 {
-                                            *offset = (*offset).wrapping_sub(1);
-                                        } else {
-                                            self.bufOff = (self.bufOff).wrapping_sub(1);
-                                        };
+                                    curChar = self.read_char(json_text, offset);
+                                    if charLookupTable[curChar as usize] & VHC == 0 {
+                                        self.unread_char(offset);
                                         self.error = LexError::StringInvalidHexChar;
                                         break 's_10;
                                     } else {
@@ -582,34 +279,23 @@ impl Lexer {
                                 }
                             }
                         } else {
-                            if charLookupTable[curChar as usize] as libc::c_int & 0x1 as libc::c_int
-                                != 0
-                            {
+                            if charLookupTable[curChar as usize] & VEC != 0 {
                                 continue;
                             }
-                            if *offset > 0 {
-                                *offset = (*offset).wrapping_sub(1);
-                            } else {
-                                self.bufOff = (self.bufOff).wrapping_sub(1);
-                            };
+                            self.unread_char(offset);
                             self.error = LexError::StringInvalidEscapedChar;
                             break;
                         }
                     }
-                } else if charLookupTable[curChar as usize] as libc::c_int & 0x2 as libc::c_int != 0
-                {
-                    if *offset > 0 {
-                        *offset = (*offset).wrapping_sub(1);
-                    } else {
-                        self.bufOff = (self.bufOff).wrapping_sub(1);
-                    };
+                } else if charLookupTable[curChar as usize] & IJC != 0 {
+                    self.unread_char(offset);
                     self.error = LexError::StringInvalidJsonChar;
                     break;
                 } else {
-                    if self.validateUTF8 == 0 {
+                    if !self.validateUTF8 {
                         continue;
                     }
-                    let mut t: Token = self.utf8_char(jsonText, jsonTextLen, offset, curChar);
+                    let mut t: Token = self.utf8_char(json_text, offset, curChar);
                     if t == Token::Eof {
                         tok = Token::Eof;
                         break;
@@ -623,288 +309,127 @@ impl Lexer {
                 }
             }
         }
-        if hasEscapes != 0 && tok == Token::String {
+        if hasEscapes && tok == Token::String {
             tok = Token::StringWithEscapes;
         }
         tok
     }
-    unsafe fn number(
-        &mut self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-        mut offset: *mut usize,
-    ) -> Token {
-        let mut c: libc::c_uchar = 0;
+    fn number(&mut self, json_text: &[u8], offset: &mut usize) -> Token {
         let mut tok: Token = Token::Integer;
-        if *offset >= jsonTextLen {
+        if *offset >= json_text.len() {
             return Token::Eof;
         }
-        c = (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len() {
-            let fresh18 = self.bufOff;
-            self.bufOff = (self.bufOff).wrapping_add(1);
-            *((*self.buf).data()).add(fresh18) as libc::c_int
-        } else {
-            let fresh19 = *offset;
-            *offset = (*offset).wrapping_add(1);
-            *jsonText.add(fresh19) as libc::c_int
-        }) as libc::c_uchar;
-        if c as libc::c_int == '-' as i32 {
-            if *offset >= jsonTextLen {
+        let mut c = self.read_char(json_text, offset);
+        if c == b'-' {
+            if *offset >= json_text.len() {
                 return Token::Eof;
             }
-            c = (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
-            {
-                let fresh20 = self.bufOff;
-                self.bufOff = (self.bufOff).wrapping_add(1);
-                *((*self.buf).data()).add(fresh20) as libc::c_int
-            } else {
-                let fresh21 = *offset;
-                *offset = (*offset).wrapping_add(1);
-                *jsonText.add(fresh21) as libc::c_int
-            }) as libc::c_uchar;
+            c = self.read_char(json_text, offset);
         }
-        if c as libc::c_int == '0' as i32 {
-            if *offset >= jsonTextLen {
+        if c == b'0' {
+            if *offset >= json_text.len() {
                 return Token::Eof;
             }
-            c = (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
-            {
-                let fresh22 = self.bufOff;
-                self.bufOff = (self.bufOff).wrapping_add(1);
-                *((*self.buf).data()).add(fresh22) as libc::c_int
-            } else {
-                let fresh23 = *offset;
-                *offset = (*offset).wrapping_add(1);
-                *jsonText.add(fresh23) as libc::c_int
-            }) as libc::c_uchar;
-        } else if c as libc::c_int >= '1' as i32 && c as libc::c_int <= '9' as i32 {
+            c = self.read_char(json_text, offset);
+        } else if (b'1'..=b'9').contains(&c) {
             loop {
-                if *offset >= jsonTextLen {
+                if *offset >= json_text.len() {
                     return Token::Eof;
                 }
-                c = (if self.bufInUse != 0
-                    && (*self.buf).len() != 0
-                    && self.bufOff < (*self.buf).len()
-                {
-                    let fresh24 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh24) as libc::c_int
-                } else {
-                    let fresh25 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh25) as libc::c_int
-                }) as libc::c_uchar;
-                if !(c as libc::c_int >= '0' as i32 && c as libc::c_int <= '9' as i32) {
+                c = self.read_char(json_text, offset);
+                if !c.is_ascii_digit() {
                     break;
                 }
             }
         } else {
-            if *offset > 0 {
-                *offset = (*offset).wrapping_sub(1);
-            } else {
-                self.bufOff = (self.bufOff).wrapping_sub(1);
-            };
+            self.unread_char(offset);
             self.error = LexError::MissingIntegerAfterMinus;
             return Token::Error;
         }
-        if c as libc::c_int == '.' as i32 {
-            let mut numRd: libc::c_int = 0 as libc::c_int;
-            if *offset >= jsonTextLen {
+        if c == b'.' {
+            let mut numRd = 0;
+            if *offset >= json_text.len() {
                 return Token::Eof;
             }
-            c = (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
-            {
-                let fresh26 = self.bufOff;
-                self.bufOff = (self.bufOff).wrapping_add(1);
-                *((*self.buf).data()).add(fresh26) as libc::c_int
-            } else {
-                let fresh27 = *offset;
-                *offset = (*offset).wrapping_add(1);
-                *jsonText.add(fresh27) as libc::c_int
-            }) as libc::c_uchar;
-            while c as libc::c_int >= '0' as i32 && c as libc::c_int <= '9' as i32 {
+            c = self.read_char(json_text, offset);
+            while c.is_ascii_digit() {
                 numRd += 1;
-                if *offset >= jsonTextLen {
+                if *offset >= json_text.len() {
                     return Token::Eof;
                 }
-                c = (if self.bufInUse != 0
-                    && (*self.buf).len() != 0
-                    && self.bufOff < (*self.buf).len()
-                {
-                    let fresh28 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh28) as libc::c_int
-                } else {
-                    let fresh29 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh29) as libc::c_int
-                }) as libc::c_uchar;
+                c = self.read_char(json_text, offset);
             }
             if numRd == 0 {
-                if *offset > 0 {
-                    *offset = (*offset).wrapping_sub(1);
-                } else {
-                    self.bufOff = (self.bufOff).wrapping_sub(1);
-                };
+                self.unread_char(offset);
                 self.error = LexError::MissingIntegerAfterDecimal;
                 return Token::Error;
             }
             tok = Token::Double;
         }
-        if c as libc::c_int == 'e' as i32 || c as libc::c_int == 'E' as i32 {
-            if *offset >= jsonTextLen {
+        if c == b'e' || c == b'E' {
+            if *offset >= json_text.len() {
                 return Token::Eof;
             }
-            c = (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len()
-            {
-                let fresh30 = self.bufOff;
-                self.bufOff = (self.bufOff).wrapping_add(1);
-                *((*self.buf).data()).add(fresh30) as libc::c_int
-            } else {
-                let fresh31 = *offset;
-                *offset = (*offset).wrapping_add(1);
-                *jsonText.add(fresh31) as libc::c_int
-            }) as libc::c_uchar;
-            if c as libc::c_int == '+' as i32 || c as libc::c_int == '-' as i32 {
-                if *offset >= jsonTextLen {
+            c = self.read_char(json_text, offset);
+            if c == b'+' || c == b'-' {
+                if *offset >= json_text.len() {
                     return Token::Eof;
                 }
-                c = (if self.bufInUse != 0
-                    && (*self.buf).len() != 0
-                    && self.bufOff < (*self.buf).len()
-                {
-                    let fresh32 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh32) as libc::c_int
-                } else {
-                    let fresh33 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh33) as libc::c_int
-                }) as libc::c_uchar;
+                c = self.read_char(json_text, offset);
             }
-            if c as libc::c_int >= '0' as i32 && c as libc::c_int <= '9' as i32 {
+            if c.is_ascii_digit() {
                 loop {
-                    if *offset >= jsonTextLen {
+                    if *offset >= json_text.len() {
                         return Token::Eof;
                     }
-                    c = (if self.bufInUse != 0
-                        && (*self.buf).len() != 0
-                        && self.bufOff < (*self.buf).len()
-                    {
-                        let fresh34 = self.bufOff;
-                        self.bufOff = (self.bufOff).wrapping_add(1);
-                        *((*self.buf).data()).add(fresh34) as libc::c_int
-                    } else {
-                        let fresh35 = *offset;
-                        *offset = (*offset).wrapping_add(1);
-                        *jsonText.add(fresh35) as libc::c_int
-                    }) as libc::c_uchar;
-                    if !(c as libc::c_int >= '0' as i32 && c as libc::c_int <= '9' as i32) {
+                    c = self.read_char(json_text, offset);
+                    if !c.is_ascii_digit() {
                         break;
                     }
                 }
             } else {
-                if *offset > 0 {
-                    *offset = (*offset).wrapping_sub(1);
-                } else {
-                    self.bufOff = (self.bufOff).wrapping_sub(1);
-                };
+                self.unread_char(offset);
                 self.error = LexError::MissingIntegerAfterExponent;
                 return Token::Error;
             }
             tok = Token::Double;
         }
-        if *offset > 0 {
-            *offset = (*offset).wrapping_sub(1);
-        } else {
-            self.bufOff = (self.bufOff).wrapping_sub(1);
-        };
+        self.unread_char(offset);
         tok
     }
-    unsafe fn comment(
-        &mut self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-        mut offset: *mut usize,
-    ) -> Token {
-        let mut c: libc::c_uchar = 0;
+    fn comment(&mut self, json_text: &[u8], offset: &mut usize) -> Token {
         let mut tok: Token = Token::Comment;
-        if *offset >= jsonTextLen {
+        if *offset >= json_text.len() {
             return Token::Eof;
         }
-        c = (if self.bufInUse != 0 && (*self.buf).len() != 0 && self.bufOff < (*self.buf).len() {
-            let fresh36 = self.bufOff;
-            self.bufOff = (self.bufOff).wrapping_add(1);
-            *((*self.buf).data()).add(fresh36) as libc::c_int
-        } else {
-            let fresh37 = *offset;
-            *offset = (*offset).wrapping_add(1);
-            *jsonText.add(fresh37) as libc::c_int
-        }) as libc::c_uchar;
-        if c as libc::c_int == '/' as i32 {
+        let mut c = self.read_char(json_text, offset);
+        if c == b'/' {
             loop {
-                if *offset >= jsonTextLen {
+                if *offset >= json_text.len() {
                     return Token::Eof;
                 }
-                c = (if self.bufInUse != 0
-                    && (*self.buf).len() != 0
-                    && self.bufOff < (*self.buf).len()
-                {
-                    let fresh38 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh38) as libc::c_int
-                } else {
-                    let fresh39 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh39) as libc::c_int
-                }) as libc::c_uchar;
-                if c as libc::c_int == '\n' as i32 {
+                c = self.read_char(json_text, offset);
+                if c == b'\n' {
                     break;
                 }
             }
-        } else if c as libc::c_int == '*' as i32 {
+        } else if c == b'*' {
             loop {
-                if *offset >= jsonTextLen {
+                if *offset >= json_text.len() {
                     return Token::Eof;
                 }
-                c = (if self.bufInUse != 0
-                    && (*self.buf).len() != 0
-                    && self.bufOff < (*self.buf).len()
-                {
-                    let fresh40 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh40) as libc::c_int
-                } else {
-                    let fresh41 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh41) as libc::c_int
-                }) as libc::c_uchar;
-                if c as libc::c_int != '*' as i32 {
+                c = self.read_char(json_text, offset);
+                if c != b'*' {
                     continue;
                 }
-                if *offset >= jsonTextLen {
+                if *offset >= json_text.len() {
                     return Token::Eof;
                 }
-                c = (if self.bufInUse != 0
-                    && (*self.buf).len() != 0
-                    && self.bufOff < (*self.buf).len()
-                {
-                    let fresh42 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh42) as libc::c_int
-                } else {
-                    let fresh43 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh43) as libc::c_int
-                }) as libc::c_uchar;
-                if c as libc::c_int == '/' as i32 {
+                c = self.read_char(json_text, offset);
+                if c == b'/' {
                     break;
                 }
-                if *offset > 0 {
-                    *offset = (*offset).wrapping_sub(1);
-                } else {
-                    self.bufOff = (self.bufOff).wrapping_sub(1);
-                };
+                self.unread_char(offset);
             }
         } else {
             self.error = LexError::InvalidChar;
@@ -915,9 +440,8 @@ impl Lexer {
 
     pub unsafe fn lex(
         &mut self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-        mut offset: *mut usize,
+        json_text: &[u8],
+        offset: &mut usize,
         mut outBuf: *mut *const libc::c_uchar,
         mut outLen: *mut usize,
     ) -> Token {
@@ -925,78 +449,52 @@ impl Lexer {
         let mut c: libc::c_uchar = 0;
         let mut startOffset: usize = *offset;
         *outBuf = std::ptr::null::<libc::c_uchar>();
-        *outLen = 0 as libc::c_int as usize;
+        *outLen = 0;
         's_21: loop {
-            if *offset >= jsonTextLen {
+            if *offset >= json_text.len() {
                 tok = Token::Eof;
                 break;
             } else {
-                c = (if self.bufInUse != 0
-                    && (*self.buf).len() != 0
-                    && self.bufOff < (*self.buf).len()
-                {
-                    let fresh44 = self.bufOff;
-                    self.bufOff = (self.bufOff).wrapping_add(1);
-                    *((*self.buf).data()).add(fresh44) as libc::c_int
-                } else {
-                    let fresh45 = *offset;
-                    *offset = (*offset).wrapping_add(1);
-                    *jsonText.add(fresh45) as libc::c_int
-                }) as libc::c_uchar;
-                match c as libc::c_int {
-                    123 => {
+                c = self.read_char(json_text, offset);
+                match c {
+                    b'{' => {
                         tok = Token::LeftBracket;
                         break;
                     }
-                    125 => {
+                    b'}' => {
                         tok = Token::RightBracket;
                         break;
                     }
-                    91 => {
+                    b'[' => {
                         tok = Token::LeftBrace;
                         break;
                     }
-                    93 => {
+                    b']' => {
                         tok = Token::RightBrace;
                         break;
                     }
-                    44 => {
+                    b',' => {
                         tok = Token::Comma;
                         break;
                     }
-                    58 => {
+                    b':' => {
                         tok = Token::Colon;
                         break;
                     }
                     9 | 10 | 11 | 12 | 13 | 32 => {
                         startOffset = startOffset.wrapping_add(1);
                     }
-                    116 => {
+                    b't' => {
                         let mut want: *const libc::c_char =
                             b"rue\0" as *const u8 as *const libc::c_char;
                         loop {
-                            if *offset >= jsonTextLen {
+                            if *offset >= json_text.len() {
                                 tok = Token::Eof;
                                 break 's_21;
                             } else {
-                                c = (if self.bufInUse != 0
-                                    && (*self.buf).len() != 0
-                                    && self.bufOff < (*self.buf).len()
-                                {
-                                    let fresh46 = self.bufOff;
-                                    self.bufOff = (self.bufOff).wrapping_add(1);
-                                    *((*self.buf).data()).add(fresh46) as libc::c_int
-                                } else {
-                                    let fresh47 = *offset;
-                                    *offset = (*offset).wrapping_add(1);
-                                    *jsonText.add(fresh47) as libc::c_int
-                                }) as libc::c_uchar;
+                                c = self.read_char(json_text, offset);
                                 if c as libc::c_int != *want as libc::c_int {
-                                    if *offset > 0 {
-                                        *offset = (*offset).wrapping_sub(1);
-                                    } else {
-                                        self.bufOff = (self.bufOff).wrapping_sub(1);
-                                    };
+                                    self.unread_char(offset);
                                     self.error = LexError::InvalidString;
                                     tok = Token::Error;
                                     break 's_21;
@@ -1011,32 +509,17 @@ impl Lexer {
                         tok = Token::Bool;
                         break;
                     }
-                    102 => {
+                    b'f' => {
                         let mut want_0: *const libc::c_char =
                             b"alse\0" as *const u8 as *const libc::c_char;
                         loop {
-                            if *offset >= jsonTextLen {
+                            if *offset >= json_text.len() {
                                 tok = Token::Eof;
                                 break 's_21;
                             } else {
-                                c = (if self.bufInUse != 0
-                                    && (*self.buf).len() != 0
-                                    && self.bufOff < (*self.buf).len()
-                                {
-                                    let fresh48 = self.bufOff;
-                                    self.bufOff = (self.bufOff).wrapping_add(1);
-                                    *((*self.buf).data()).add(fresh48) as libc::c_int
-                                } else {
-                                    let fresh49 = *offset;
-                                    *offset = (*offset).wrapping_add(1);
-                                    *jsonText.add(fresh49) as libc::c_int
-                                }) as libc::c_uchar;
+                                c = self.read_char(json_text, offset);
                                 if c as libc::c_int != *want_0 as libc::c_int {
-                                    if *offset > 0 {
-                                        *offset = (*offset).wrapping_sub(1);
-                                    } else {
-                                        self.bufOff = (self.bufOff).wrapping_sub(1);
-                                    };
+                                    self.unread_char(offset);
                                     self.error = LexError::InvalidString;
                                     tok = Token::Error;
                                     break 's_21;
@@ -1051,32 +534,17 @@ impl Lexer {
                         tok = Token::Bool;
                         break;
                     }
-                    110 => {
+                    b'n' => {
                         let mut want_1: *const libc::c_char =
                             b"ull\0" as *const u8 as *const libc::c_char;
                         loop {
-                            if *offset >= jsonTextLen {
+                            if *offset >= json_text.len() {
                                 tok = Token::Eof;
                                 break 's_21;
                             } else {
-                                c = (if self.bufInUse != 0
-                                    && (*self.buf).len() != 0
-                                    && self.bufOff < (*self.buf).len()
-                                {
-                                    let fresh50 = self.bufOff;
-                                    self.bufOff = (self.bufOff).wrapping_add(1);
-                                    *((*self.buf).data()).add(fresh50) as libc::c_int
-                                } else {
-                                    let fresh51 = *offset;
-                                    *offset = (*offset).wrapping_add(1);
-                                    *jsonText.add(fresh51) as libc::c_int
-                                }) as libc::c_uchar;
+                                c = self.read_char(json_text, offset);
                                 if c as libc::c_int != *want_1 as libc::c_int {
-                                    if *offset > 0 {
-                                        *offset = (*offset).wrapping_sub(1);
-                                    } else {
-                                        self.bufOff = (self.bufOff).wrapping_sub(1);
-                                    };
+                                    self.unread_char(offset);
                                     self.error = LexError::InvalidString;
                                     tok = Token::Error;
                                     break 's_21;
@@ -1091,37 +559,29 @@ impl Lexer {
                         tok = Token::Null;
                         break;
                     }
-                    34 => {
-                        tok = self.string(jsonText, jsonTextLen, offset);
+                    b'"' => {
+                        tok = self.string(json_text, offset);
                         break;
                     }
-                    45 | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 => {
-                        if *offset > 0 {
-                            *offset = (*offset).wrapping_sub(1);
-                        } else {
-                            self.bufOff = (self.bufOff).wrapping_sub(1);
-                        };
-                        tok = self.number(jsonText, jsonTextLen, offset);
+                    b'-' | b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' => {
+                        self.unread_char(offset);
+                        tok = self.number(json_text, offset);
                         break;
                     }
-                    47 => {
-                        if self.allowComments == 0 {
-                            if *offset > 0 {
-                                *offset = (*offset).wrapping_sub(1);
-                            } else {
-                                self.bufOff = (self.bufOff).wrapping_sub(1);
-                            };
+                    b'/' => {
+                        if !self.allowComments {
+                            self.unread_char(offset);
                             self.error = LexError::UnallowedComment;
                             tok = Token::Error;
                             break;
                         } else {
-                            tok = self.comment(jsonText, jsonTextLen, offset);
+                            tok = self.comment(json_text, offset);
                             if tok != Token::Comment {
                                 break;
                             }
                             tok = Token::Error;
-                            (*self.buf).clear();
-                            self.bufInUse = 0;
+                            self.buf.clear();
+                            self.buf_in_use = false;
                             startOffset = *offset;
                         }
                     }
@@ -1133,28 +593,29 @@ impl Lexer {
                 }
             }
         }
-        if tok == Token::Eof || self.bufInUse != 0 {
-            if self.bufInUse == 0 {
-                (*self.buf).clear();
+        if tok == Token::Eof || self.buf_in_use {
+            if !self.buf_in_use {
+                self.buf.clear();
             }
-            self.bufInUse = 1;
-            (*self.buf).append(
-                jsonText.add(startOffset) as *const libc::c_void,
-                (*offset).wrapping_sub(startOffset),
-            );
-            self.bufOff = 0;
+            self.buf_in_use = true;
+            self.buf.extend_from_slice(&json_text[startOffset..*offset]);
+            // self.buf.append(
+            //     json_text.as_ptr().add(startOffset) as *const libc::c_void,
+            //     (*offset).wrapping_sub(startOffset),
+            // );
+            self.buf_off = 0;
             if tok != Token::Eof {
-                *outBuf = (*self.buf).data();
-                *outLen = (*self.buf).len();
-                self.bufInUse = 0;
+                *outBuf = self.buf.data();
+                *outLen = self.buf.len();
+                self.buf_in_use = false;
             }
         } else if tok != Token::Error {
-            *outBuf = jsonText.add(startOffset);
+            *outBuf = json_text.as_ptr().add(startOffset);
             *outLen = (*offset).wrapping_sub(startOffset);
         }
         if tok == Token::String || tok == Token::StringWithEscapes {
             *outBuf = (*outBuf).offset(1);
-            *outLen = { *outLen }.wrapping_sub(2 as libc::c_int as usize);
+            *outLen = (*outLen).wrapping_sub(2);
         }
         tok
     }
@@ -1211,22 +672,17 @@ impl Lexer {
         self.charOff
     }
 
-    pub unsafe fn peek(
-        &mut self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-        mut offset: usize,
-    ) -> Token {
+    pub unsafe fn peek(&mut self, json_text: &[u8], mut offset: usize) -> Token {
         let mut outBuf: *const libc::c_uchar = std::ptr::null::<libc::c_uchar>();
         let mut outLen: usize = 0;
-        let mut bufLen: usize = (*self.buf).len();
-        let mut bufOff: usize = self.bufOff;
-        let mut bufInUse: libc::c_uint = self.bufInUse;
+        let mut bufLen: usize = self.buf.len();
+        let mut buf_off: usize = self.buf_off;
+        let buf_in_use = self.buf_in_use;
         let mut tok: Token = Token::Bool;
-        tok = self.lex(jsonText, jsonTextLen, &mut offset, &mut outBuf, &mut outLen);
-        self.bufOff = bufOff;
-        self.bufInUse = bufInUse;
-        (*self.buf).truncate(bufLen);
+        tok = self.lex(json_text, &mut offset, &mut outBuf, &mut outLen);
+        self.buf_off = buf_off;
+        self.buf_in_use = buf_in_use;
+        self.buf.truncate(bufLen);
         tok
     }
 }

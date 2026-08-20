@@ -4,6 +4,12 @@ edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
 
+[[bin]]
+name = "json-verify"
+path = "src/json_verify.rs"
+doctest = false
+test = false
+
 [dependencies]
 yajl = { workspace = true }
 libc = { workspace = true }

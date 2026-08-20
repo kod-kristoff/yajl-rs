@@ -1,6 +1,5 @@
 ---
 source: crates/yajl-ffi-test-suite/tests/api/tree_api.rs
 expression: msg
-snapshot_kind: text
 ---
 ""

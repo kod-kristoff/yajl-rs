@@ -19,10 +19,14 @@ yajl = { workspace = true }
 
 [lib]
 name = "yajl"
-# path = "src/yajl.rs"
+path = "src/yajl_clib.rs"
 crate-type = ["staticlib", "cdylib"]
 doctest = false
 doc = false
+
+[[test]]
+name = "yajl-clib-api-tests"
+path = "tests/api/yajl_clib_api_tests.rs"
 
 [profile.dev]
 panic = "abort"

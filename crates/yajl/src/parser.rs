@@ -156,11 +156,11 @@ impl Parser {
     /// # Arguments
     ///
     /// * `callbacks` - a yajl callbacks structure specifying the
-    ///                    functions to call when different JSON entities
-    ///                    are encountered in the input text.  May be NULL,
-    ///                    which is only useful for validation.
+    ///   functions to call when different JSON entities
+    ///   are encountered in the input text.  May be NULL,
+    ///   which is only useful for validation.
     /// * `afs` - memory allocation functions, may be NULL for to use
-    ///                    C runtime library routines (malloc and friends)
+    ///   C runtime library routines (malloc and friends)
     /// * `ctx` - a context pointer that will be passed to callbacks.
     ///
     /// # Safety
@@ -292,22 +292,17 @@ impl Parser {
         }
         true
     }
-    pub unsafe fn parse(
-        &mut self,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-    ) -> Status {
+    pub unsafe fn parse(&mut self, json_text: &[u8]) -> Status {
         self.ensure_lexer();
-        self.do_parse(jsonText, jsonTextLen)
+        self.do_parse(json_text)
     }
     fn ensure_lexer(&mut self) {
         if self.lexer.is_null() {
             unsafe {
                 self.lexer = Lexer::alloc(
                     &mut self.alloc,
-                    self.flags & ParserOption::AllowComments as u32,
-                    (self.flags & ParserOption::DontValidateStrings as u32 == 0) as libc::c_int
-                        as libc::c_uint,
+                    self.flags & ParserOption::AllowComments as u32 != 0,
+                    self.flags & ParserOption::DontValidateStrings as u32 == 0,
                 );
             }
         }
@@ -317,13 +312,8 @@ impl Parser {
         unsafe { self.do_finish() }
     }
 
-    pub unsafe fn get_error(
-        &mut self,
-        mut verbose: bool,
-        mut jsonText: *const libc::c_uchar,
-        mut jsonTextLen: usize,
-    ) -> *mut libc::c_uchar {
-        self.render_error_string(jsonText, jsonTextLen, verbose)
+    pub unsafe fn get_error(&mut self, mut verbose: bool, json_text: &[u8]) -> *mut libc::c_uchar {
+        self.render_error_string(json_text, verbose)
     }
 
     pub fn get_bytes_consumed(&self) -> usize {

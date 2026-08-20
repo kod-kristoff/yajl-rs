@@ -77,7 +77,7 @@ $(YAJL_TEST): tests/parsing/yajl_test.c $(SOLIB) build/test/parsing
 $(YAJL_TEST_API): tests/api/gen-extra-close.c $(SOLIB) build/tests/api
 	$(CC) -Wall $(CFLAGS) $< -l:libyajl.so -Ltarget/debug -o $@
 
-$(YAJL_TEST_RS): examples/yajl_test/src/main.rs examples/yajl_test/Cargo.toml $(RLIB)
+$(YAJL_TEST_RS): examples/yajl_test/src/yajl_test.rs examples/yajl_test/Cargo.toml $(RLIB)
 	cargo build --package yajl_test
 
 run-parse-config: bin/parse_config

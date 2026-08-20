@@ -165,8 +165,7 @@ impl Value {
     const NUMBER_DOUBLE_VALID: c_uint = 0x02;
 
     unsafe fn alloc(mut type_0: ValueType) -> Result<*mut Value, ValueError> {
-        let mut v: *mut Value = ptr::null_mut();
-        v = libc::malloc(::core::mem::size_of::<Value>()) as *mut Value;
+        let mut v: *mut Value = libc::malloc(::core::mem::size_of::<Value>()) as *mut Value;
         if v.is_null() {
             return Err(ValueError::OutOfMemory);
         }
@@ -187,7 +186,7 @@ impl Value {
             *fresh0 = ptr::null::<c_char>();
             Value::tree_free(*((*v).u.object.values).add(i));
             let fresh1 = &mut (*((*v).u.object.values).add(i));
-            *fresh1 = 0 as *mut Value;
+            *fresh1 = ptr::null_mut();
             i = i.wrapping_add(1);
         }
         libc::free((*v).u.object.keys as *mut c_void);
@@ -203,7 +202,7 @@ impl Value {
         while i < (*v).u.array.len {
             Value::tree_free(*((*v).u.array.values).add(i));
             let fresh2 = &mut (*((*v).u.array.values).add(i));
-            *fresh2 = 0 as *mut Value;
+            *fresh2 = ptr::null_mut();
             i = i.wrapping_add(1);
         }
         libc::free((*v).u.array.values as *mut c_void);
@@ -363,7 +362,7 @@ impl Value {
             Err(ParseIntegerError::Underflow) => i64::MIN,
             _ => i64::MAX,
         };
-        if let Some(s) = CStr::from_ptr((*v).u.number.r).to_str().ok() {
+        if let Ok(s) = CStr::from_ptr((*v).u.number.r).to_str() {
             if let Some((d, d_len)) = strtod::strtod(s) {
                 (*v).u.number.d = d;
                 if d_len == len {
@@ -505,13 +504,10 @@ unsafe extern "C" fn handle_null(mut ctx: *mut c_void) -> c_int {
 }
 
 pub unsafe fn yajl_tree_parse(
-    mut input: *const c_char,
+    input: &[u8],
     mut error_buffer: *mut c_char,
     mut error_buffer_size: usize,
 ) -> Option<*mut Value> {
-    if input.is_null() {
-        return None;
-    }
     static mut callbacks: yajl_callbacks = unsafe {
         {
             yajl_callbacks {
@@ -555,12 +551,11 @@ pub unsafe fn yajl_tree_parse(
     );
     let parser = unsafe { &mut *handle };
     parser.config(ParserOption::AllowComments, true);
-    let mut status = parser.parse(input as *mut c_uchar, libc::strlen(input));
+    let mut status = parser.parse(input);
     status = parser.complete_parse();
     if status != Status::Ok {
         if !error_buffer.is_null() && error_buffer_size > 0 {
-            let internal_err_str =
-                parser.get_error(true, input as *const c_uchar, libc::strlen(input)) as *mut c_char;
+            let internal_err_str = parser.get_error(true, input) as *mut c_char;
             libc::snprintf(
                 error_buffer,
                 error_buffer_size,

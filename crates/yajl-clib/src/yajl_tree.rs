@@ -23,12 +23,14 @@ pub unsafe extern "C" fn yajl_tree_parse(
             let mut msg = b"NULL input\0";
             let err_buf = slice::from_raw_parts_mut(error_buffer, error_buffer_size);
             if error_buffer_size > msg.len() {
-                err_buf[..msg.len()].copy_from_slice(&*(msg as *const [u8] as *const [i8]));
+                err_buf[..msg.len()]
+                    .copy_from_slice(&*(msg as *const [u8] as *const [libc::c_char]));
             }
         }
         return ptr::null_mut();
     }
-    match yajl::tree::yajl_tree_parse(input, error_buffer, error_buffer_size) {
+    let input_slice: &[u8] = slice::from_raw_parts(input as *const u8, libc::strlen(input));
+    match yajl::tree::yajl_tree_parse(input_slice, error_buffer, error_buffer_size) {
         Some(value) => value,
         None => ptr::null_mut(),
     }

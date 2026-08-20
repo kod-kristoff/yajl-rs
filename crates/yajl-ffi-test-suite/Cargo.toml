@@ -5,6 +5,14 @@ version.workspace = true
 rust-version.workspace = true
 publish = false
 
+[lib]
+doc = false
+doctest = false
+
+[[test]]
+name = "yajl-ffi-test-suite"
+path = "tests/api/yajl_ffi_test_suite.rs"
+
 [dependencies]
 yajl-clib = { workspace = true }
 libc = { workspace = true }

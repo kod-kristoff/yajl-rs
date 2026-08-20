@@ -4,6 +4,13 @@ version = { workspace = true }
 edition = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+doctest = false
+path = "src/yajl.rs"
+
+[[test]]
+name = "yajl-api-tests"
+path = "tests/api/yajl_api_tests.rs"
 
 [features]
 default = []
@@ -14,8 +21,6 @@ nightly = []
 libc = { workspace = true }
 strtod = { git = "https://github.com/kod-kristoff/strtod" }
 
-[lib]
-doctest = false
 
 [dev-dependencies]
 anyhow = "1.0.92"
